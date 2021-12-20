@@ -9,7 +9,7 @@
 
 namespace majsdown {
 
-std::string*& get_tl_buffer_ptr() noexcept
+[[nodiscard]] std::string*& get_tl_buffer_ptr() noexcept
 {
     thread_local std::string* buffer_ptr;
     return buffer_ptr;
@@ -22,7 +22,6 @@ void output_to_tl_buffer_pointee(js_State* state)
 
     const char* string_arg{js_tostring(state, 1)};
 
-    buffer_ptr->clear();
     buffer_ptr->append(string_arg);
 
     js_pushundefined(state);
@@ -56,6 +55,11 @@ struct js_interpreter::impl
         get_tl_buffer_ptr() = &output_buffer;
         js_dostring(_state, source.data());
     }
+
+    void interpret_discard(const std::string_view source) noexcept
+    {
+        js_dostring(_state, source.data());
+    }
 };
 
 js_interpreter::js_interpreter() : _impl{std::make_unique<impl>()}
@@ -67,6 +71,11 @@ void js_interpreter::interpret(
     std::string& output_buffer, const std::string_view source) noexcept
 {
     _impl->interpret(output_buffer, source);
+}
+
+void js_interpreter::interpret_discard(const std::string_view source) noexcept
+{
+    _impl->interpret_discard(source);
 }
 
 } // namespace majsdown

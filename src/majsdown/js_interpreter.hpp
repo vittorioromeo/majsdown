@@ -19,6 +19,8 @@ public:
 
     void interpret(
         std::string& output_buffer, const std::string_view source) noexcept;
+
+    void interpret_discard(const std::string_view source) noexcept;
 };
 
 } // namespace majsdown
