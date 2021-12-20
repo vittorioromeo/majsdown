@@ -75,6 +75,42 @@ endif()
 #
 #
 # -----------------------------------------------------------------------------
+# CPM: discount
+# -----------------------------------------------------------------------------
+
+CPMAddPackage(
+    NAME discount
+    GIT_REPOSITORY https://github.com/Orc/discount.git
+    GIT_TAG v2.2.7
+    DOWNLOAD_ONLY YES
+)
+
+if (discount_ADDED)
+    add_definitions("-DDESTRUCTOR=")
+    include("${discount_SOURCE_DIR}/cmake/CMakeLists.txt")
+endif()
+
+#
+#
+# -----------------------------------------------------------------------------
+# CPM: mujs
+# -----------------------------------------------------------------------------
+
+CPMAddPackage(
+    NAME mujs
+    GIT_REPOSITORY https://github.com/ccxvii/mujs
+    GIT_TAG 1.2.0
+    DOWNLOAD_ONLY YES
+)
+
+if (mujs_ADDED)
+    add_library(mujs STATIC "${mujs_SOURCE_DIR}/one.c")
+    target_link_libraries(mujs PRIVATE readline m)
+endif()
+
+#
+#
+# -----------------------------------------------------------------------------
 # CPM: doctest
 # -----------------------------------------------------------------------------
 
@@ -124,9 +160,6 @@ set(CMAKE_UNITY_BUILD OFF) # TODO
 set(MAJSDOWN_INC_DIR "src" CACHE STRING "")
 set(MAJSDOWN_SRC_DIR "src" CACHE STRING "")
 
-include_directories("./") # TODO: use target
-include_directories("./${MAJSDOWN_INC_DIR}") # TODO: use target
-
 file(GLOB_RECURSE MAJSDOWN_SRC_LIST "${MAJSDOWN_SRC_DIR}/majsdown/*.cpp")
 
 #
@@ -147,8 +180,13 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS true)
 
 add_library(majsdown STATIC ${MAJSDOWN_SRC_LIST})
 
-target_include_directories(majsdown SYSTEM PUBLIC
-    "${VRM_PP_INCLUDE_DIR}")
+target_include_directories(majsdown PUBLIC "./")
+target_include_directories(majsdown PUBLIC "./${MAJSDOWN_INC_DIR}")
+
+target_include_directories(majsdown SYSTEM PRIVATE "${VRM_PP_INCLUDE_DIR}")
+target_include_directories(majsdown SYSTEM PRIVATE "${mujs_SOURCE_DIR}")
+
+target_link_libraries(majsdown PRIVATE libmarkdown mujs)
 
 #
 #
