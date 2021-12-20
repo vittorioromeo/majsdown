@@ -1,12 +1,11 @@
 #pragma once
 
 #include <memory>
-#include <string>
 #include <string_view>
 
 namespace majsdown {
 
-class js_interpreter
+class converter
 {
 private:
     struct impl;
@@ -14,10 +13,10 @@ private:
     std::unique_ptr<impl> _impl;
 
 public:
-    [[nodiscard]] explicit js_interpreter();
-    ~js_interpreter();
+    [[nodiscard]] explicit converter();
+    ~converter();
 
-    void interpret(
+    [[nodiscard]] bool convert(
         std::string& output_buffer, const std::string_view source) noexcept;
 };
 

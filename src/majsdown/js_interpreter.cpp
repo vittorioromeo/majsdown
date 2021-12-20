@@ -2,26 +2,28 @@
 
 #include <mujs.h>
 
+#include <cassert>
 #include <memory>
-#include <string_view>
 #include <string>
+#include <string_view>
 
 namespace majsdown {
 
-std::string& get_tl_buffer()
+std::string*& get_tl_buffer_ptr() noexcept
 {
-    thread_local std::string buffer;
-    return buffer;
+    thread_local std::string* buffer_ptr;
+    return buffer_ptr;
 }
 
-void output_to_tl_buffer(js_State* state)
+void output_to_tl_buffer_pointee(js_State* state)
 {
-    std::string& buffer{get_tl_buffer()};
+    std::string* const buffer_ptr{get_tl_buffer_ptr()};
+    assert(buffer_ptr != nullptr);
 
     const char* string_arg{js_tostring(state, 1)};
 
-    buffer.clear();
-    buffer.append(string_arg);
+    buffer_ptr->clear();
+    buffer_ptr->append(string_arg);
 
     js_pushundefined(state);
 }
@@ -30,26 +32,28 @@ struct js_interpreter::impl
 {
     js_State* _state;
 
-    [[nodiscard]] explicit impl()
+    [[nodiscard]] explicit impl() noexcept
         : _state{js_newstate(nullptr, nullptr, JS_STRICT)}
     {
-        bind_function(&output_to_tl_buffer, "majsdown_set_output", 1);
+        bind_function(&output_to_tl_buffer_pointee, "majsdown_set_output", 1);
     }
 
-    ~impl()
+    ~impl() noexcept
     {
         js_freestate(_state);
     }
 
     void bind_function(const js_CFunction function, const std::string_view name,
-        const int n_args)
+        const int n_args) noexcept
     {
         js_newcfunction(_state, function, name.data(), n_args);
         js_setglobal(_state, name.data());
     }
 
-    void interpret(const std::string_view source)
+    void interpret(
+        std::string& output_buffer, const std::string_view source) noexcept
     {
+        get_tl_buffer_ptr() = &output_buffer;
         js_dostring(_state, source.data());
     }
 };
@@ -59,14 +63,10 @@ js_interpreter::js_interpreter() : _impl{std::make_unique<impl>()}
 
 js_interpreter::~js_interpreter() = default;
 
-void js_interpreter::interpret(const std::string_view source) noexcept
+void js_interpreter::interpret(
+    std::string& output_buffer, const std::string_view source) noexcept
 {
-    _impl->interpret(source);
-}
-
-std::string_view js_interpreter::read_tl_buffer() const noexcept
-{
-    return {get_tl_buffer()};
+    _impl->interpret(output_buffer, source);
 }
 
 } // namespace majsdown

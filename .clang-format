@@ -48,7 +48,7 @@ NamespaceIndentation: None
 PenaltyBreakBeforeFirstCallParameter: 1000000000
 PointerAlignment: "Left"
 PointerBindsToType: true
-SortIncludes: false
+SortIncludes: true
 SpaceAfterCStyleCast: false
 SpaceBeforeAssignmentOperators: true
 SpaceBeforeParens: "ControlStatements"
