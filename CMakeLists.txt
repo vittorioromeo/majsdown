@@ -93,20 +93,14 @@ endif()
 #
 #
 # -----------------------------------------------------------------------------
-# CPM: mujs
+# CPM: quickjs
 # -----------------------------------------------------------------------------
 
 CPMAddPackage(
-    NAME mujs
-    GIT_REPOSITORY https://github.com/ccxvii/mujs
-    GIT_TAG 1.2.0
-    DOWNLOAD_ONLY YES
+    NAME quickjs
+    GIT_REPOSITORY https://github.com/vittorioromeo/quickjs
+    GIT_TAG 4eeb83a19b2772222f044655543337b563874d18
 )
-
-if (mujs_ADDED)
-    add_library(mujs STATIC "${mujs_SOURCE_DIR}/one.c")
-    target_link_libraries(mujs PRIVATE readline m)
-endif()
 
 #
 #
@@ -184,9 +178,9 @@ target_include_directories(majsdown PUBLIC "./")
 target_include_directories(majsdown PUBLIC "./${MAJSDOWN_INC_DIR}")
 
 target_include_directories(majsdown SYSTEM PRIVATE "${VRM_PP_INCLUDE_DIR}")
-target_include_directories(majsdown SYSTEM PRIVATE "${mujs_SOURCE_DIR}")
+target_include_directories(majsdown SYSTEM PRIVATE "f${quickjs_SOURCE_DIR}")
 
-target_link_libraries(majsdown PRIVATE libmarkdown mujs)
+target_link_libraries(majsdown PRIVATE libmarkdown quickjs)
 
 #
 #

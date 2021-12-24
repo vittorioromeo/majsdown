@@ -1,6 +1,7 @@
 #include "js_interpreter.hpp"
 
-#include <mujs.h>
+#include <quickjs-libc.h>
+#include <quickjs.h>
 
 #include <cassert>
 #include <fstream>
@@ -19,10 +20,10 @@ namespace majsdown {
     return buffer_ptr;
 }
 
-[[nodiscard]] static js_State*& get_tl_js_state() noexcept
+[[nodiscard]] static JSContext*& get_tl_js_context() noexcept
 {
-    thread_local js_State* js_state_ptr{nullptr};
-    return js_state_ptr;
+    thread_local JSContext* js_context_ptr{nullptr};
+    return js_context_ptr;
 }
 
 // ----------------------------------------------------------------------------
@@ -45,22 +46,23 @@ struct tl_guard
 
 // ----------------------------------------------------------------------------
 
-static void output_to_tl_buffer_pointee(js_State* state)
+static void output_to_tl_buffer_pointee(JSContext* context, JSValueConst* argv)
 {
+    const JSValue strValue = JS_ToString(context, argv[0]);
+    const char* string_arg{JS_ToCString(context, strValue)};
+
     std::string* const buffer_ptr{get_tl_buffer_ptr()};
     assert(buffer_ptr != nullptr);
-
-    const char* string_arg{js_tostring(state, 1)};
     buffer_ptr->append(string_arg);
-
-    js_pushundefined(state);
 }
 
-static void include_file(js_State* state)
+static void include_file(JSContext* context, JSValueConst* argv)
 {
+    const JSValue strValue = JS_ToString(context, argv[0]);
+    const char* string_arg{JS_ToCString(context, strValue)};
+
     thread_local std::string tmp_buffer;
 
-    const char* string_arg{js_tostring(state, 1)};
     tmp_buffer.clear();
     tmp_buffer.append(string_arg);
 
@@ -83,52 +85,75 @@ static void include_file(js_State* state)
         return;
     }
 
-    js_State* const js_state_ptr = get_tl_js_state();
-    assert(js_state_ptr != nullptr);
+    JSContext* const js_context_ptr = get_tl_js_context();
+    assert(js_context_ptr != nullptr);
 
-    js_dostring(js_state_ptr, tmp_buffer.data());
-    js_pushundefined(state);
+    JS_Eval(context, tmp_buffer.data(), tmp_buffer.size(), "<evalScript>",
+        JS_EVAL_TYPE_GLOBAL);
 }
 
 // ----------------------------------------------------------------------------
 
 struct js_interpreter::impl
 {
-    js_State* _state;
+    JSRuntime* _runtime;
+    JSContext* _context;
 
     [[nodiscard]] explicit impl() noexcept
-        : _state{js_newstate(nullptr, nullptr, JS_STRICT)}
+        : _runtime{JS_NewRuntime()}, _context{JS_NewContext(_runtime)}
     {
-        bind_function(&output_to_tl_buffer_pointee, "majsdown_set_output", 1);
-        bind_function(&include_file, "majsdown_include", 1);
+        // js_init_module_std(_context, "std");
+        // js_init_module_os(_context, "os");
+
+        bind_function<&output_to_tl_buffer_pointee>("majsdown_set_output", 1);
+        bind_function<&include_file>("majsdown_include", 1);
     }
 
     ~impl() noexcept
     {
-        js_freestate(_state);
+        JS_RunGC(_runtime);
+
+        JS_FreeContext(_context);
+        JS_FreeRuntime(_runtime);
     }
 
-    void bind_function(const js_CFunction function, const std::string_view name,
-        const int n_args) noexcept
+    template <auto FPtr>
+    void bind_function(const std::string_view name, const int n_args) noexcept
     {
-        js_newcfunction(_state, function, name.data(), n_args);
-        js_setglobal(_state, name.data());
+        auto func = [](JSContext* context, JSValueConst this_val, int argc,
+                        JSValueConst* argv) -> JSValue
+        {
+            (void)this_val;
+            (void)argc;
+
+            FPtr(context, argv);
+            return JS_UNDEFINED;
+        };
+
+        JSValue global_obj = JS_GetGlobalObject(_context);
+
+        JS_SetPropertyStr(_context, global_obj, name.data(),
+            JS_NewCFunction(_context, +func, name.data(), n_args));
+
+        JS_FreeValue(_context, global_obj);
     }
 
     void interpret(
         std::string& output_buffer, const std::string_view source) noexcept
     {
-        tl_guard<&get_tl_js_state> js_state_guard{_state};
+        tl_guard<&get_tl_js_context> js_context_guard{_context};
         tl_guard<&get_tl_buffer_ptr> buffer_ptr_guard{&output_buffer};
 
-        js_dostring(_state, source.data());
+        JS_Eval(_context, source.data(), source.size(), "<evalScript>",
+            JS_EVAL_TYPE_GLOBAL);
     }
 
     void interpret_discard(const std::string_view source) noexcept
     {
-        tl_guard<&get_tl_js_state> js_state_guard{_state};
+        tl_guard<&get_tl_js_context> js_context_guard{_context};
 
-        js_dostring(_state, source.data());
+        JS_Eval(_context, source.data(), source.size(), "<evalScript>",
+            JS_EVAL_TYPE_GLOBAL);
     }
 };
 
