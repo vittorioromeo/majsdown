@@ -129,17 +129,36 @@ hello world
     do_test(source, expected);
 }
 
+void make_tmp_file(const std::string_view path, const std::string_view contents)
+{
+    std::ofstream ofs(std::string{path});
+    REQUIRE(ofs);
+
+    ofs << contents;
+    ofs.flush();
+
+    REQUIRE(ofs);
+}
+
 TEST_CASE("converter convert #7")
 {
-    {
-        std::ofstream ofs("./i.js");
-        REQUIRE(ofs);
+    make_tmp_file("./i.js", "var i = 10;");
 
-        ofs << "var i = 10;";
-        ofs.flush();
+    const std::string_view source = R"(
+@@$ majsdown_include("./i.js");
+@@{i + 5}
+)"sv;
 
-        REQUIRE(ofs);
-    }
+    const std::string_view expected = R"(
+15
+)"sv;
+
+    do_test(source, expected);
+}
+
+TEST_CASE("converter convert #8")
+{
+    make_tmp_file("./i.js", "var i = (() => 10)();");
 
     const std::string_view source = R"(
 @@$ majsdown_include("./i.js");
