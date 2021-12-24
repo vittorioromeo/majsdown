@@ -12,14 +12,10 @@
 
 namespace majsdown {
 
-[[nodiscard]] std::string& get_tl_buffer()
-{
-    thread_local std::string buffer;
-    return buffer;
-}
-
 struct converter::impl
 {
+    std::string _tmp_buffer;
+
     [[nodiscard]] explicit impl()
     {}
 
@@ -74,7 +70,7 @@ struct converter::impl
             for (std::size_t i = start_idx; i < end_idx; ++i)
             {
                 assert(i < source.size());
-                get_tl_buffer().append(1, source[i]);
+                _tmp_buffer.append(1, source[i]);
             }
         };
 
@@ -144,10 +140,10 @@ struct converter::impl
 
                 assert(js_end_idx.has_value());
 
-                get_tl_buffer().clear();
+                _tmp_buffer.clear();
                 copy_range_to_tl_buffer(js_start_idx, *js_end_idx);
 
-                const std::string_view null_terminated_js = get_tl_buffer();
+                const std::string_view null_terminated_js = _tmp_buffer;
                 ji.interpret_discard(null_terminated_js);
 
                 curr_idx = *js_end_idx + 1;
@@ -169,13 +165,12 @@ struct converter::impl
 
                 assert(js_end_idx.has_value());
 
-                get_tl_buffer().clear();
-
-                get_tl_buffer().append("majsdown_set_output(");
+                _tmp_buffer.clear();
+                _tmp_buffer.append("majsdown_set_output(");
                 copy_range_to_tl_buffer(js_start_idx, *js_end_idx);
-                get_tl_buffer().append(");");
+                _tmp_buffer.append(");");
 
-                const std::string_view null_terminated_js = get_tl_buffer();
+                const std::string_view null_terminated_js = _tmp_buffer;
                 ji.interpret(output_buffer, null_terminated_js);
 
                 curr_idx = *js_end_idx + 1;
