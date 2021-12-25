@@ -245,3 +245,19 @@ int main() { }
 
     do_test(source, expected);
 }
+
+TEST_CASE("converter convert #14")
+{
+    const std::string_view source = R"(
+@@$ var i =
+@@$ 10
+@@$ ;
+@@{i}
+)"sv;
+
+    const std::string_view expected = R"(
+10
+)"sv;
+
+    do_test(source, expected);
+}

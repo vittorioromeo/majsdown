@@ -74,6 +74,8 @@ struct converter::impl
             }
         };
 
+        std::string js_buffer;
+
         while (!is_done())
         {
             const char c = get_curr_char();
@@ -144,12 +146,19 @@ struct converter::impl
                 _tmp_buffer.clear();
                 copy_range_to_tl_buffer(js_start_idx, *js_end_idx);
 
-                const std::string_view null_terminated_js = _tmp_buffer;
-                ji.interpret_discard(null_terminated_js);
+                js_buffer.append(_tmp_buffer);
+                // const std::string_view null_terminated_js = _tmp_buffer;
+                // ji.interpret_discard(null_terminated_js);
 
                 curr_idx = *js_end_idx + 1;
                 continue;
             }
+            else if (!js_buffer.empty())
+            {
+                ji.interpret_discard(js_buffer);
+                js_buffer.clear();
+            }
+
 
             if (*next2 == '{')
             {
