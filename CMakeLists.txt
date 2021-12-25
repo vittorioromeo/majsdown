@@ -182,6 +182,9 @@ target_include_directories(majsdown SYSTEM PRIVATE "f${quickjs_SOURCE_DIR}")
 
 target_link_libraries(majsdown PRIVATE libmarkdown quickjs)
 
+add_executable(majsdown-converter "${MAJSDOWN_SRC_DIR}/majsdown-converter/main.cpp")
+target_link_libraries(majsdown-converter PRIVATE majsdown)
+
 #
 #
 # -----------------------------------------------------------------------------

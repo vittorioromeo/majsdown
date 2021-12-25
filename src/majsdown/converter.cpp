@@ -104,7 +104,8 @@ struct converter::impl
 
             const std::optional<char> next2 = peek(2);
 
-            if (!next2.has_value() || (*next2 != '$' && *next2 != '{'))
+            if (!next2.has_value() ||
+                (*next2 != '$' && *next2 != '{' && *next2 != '_'))
             {
                 output_buffer.append(1, c);
                 step_fwd();
@@ -112,13 +113,13 @@ struct converter::impl
                 continue;
             }
 
-            assert(*next2 == '$' || *next2 == '{');
+            assert(*next2 == '$' || *next2 == '{' || *next2 == '_');
 
             const std::size_t js_start_idx = curr_idx + 3;
             if (js_start_idx >= source.size())
             {
                 std::cerr << "Unterminated '@@" << *next2
-                          << "' directive (reached end of source)" << std::endl;
+                          << "' directive (reached end of source)\n";
 
                 return false;
             }
@@ -133,7 +134,7 @@ struct converter::impl
                 if (!js_end_idx.has_value())
                 {
                     std::cerr << "Unterminated '@@" << *next2
-                              << "' directive (missing newline)" << std::endl;
+                              << "' directive (missing newline)\n";
 
                     return false;
                 }
@@ -152,13 +153,35 @@ struct converter::impl
 
             if (*next2 == '{')
             {
-                const std::optional<std::size_t> js_end_idx =
-                    find_next('}', js_start_idx); // TODO: balance parens
+                const auto js_end_idx = [&]() -> std::optional<std::size_t>
+                {
+                    std::size_t n_braces = 1;
+
+                    for (std::size_t i = js_start_idx; i < source.size(); ++i)
+                    {
+                        if (source[i] == '{')
+                        {
+                            ++n_braces;
+                            continue;
+                        }
+
+                        if (source[i] == '}')
+                        {
+                            --n_braces;
+                            if (n_braces == 0)
+                            {
+                                return i;
+                            }
+                        }
+                    }
+
+                    return std::nullopt;
+                }();
 
                 if (!js_end_idx.has_value())
                 {
                     std::cerr << "Unterminated '@@" << *next2
-                              << "' directive (missing newline)" << std::endl;
+                              << "' directive (missing closing brace)\n";
 
                     return false;
                 }
@@ -177,7 +200,143 @@ struct converter::impl
                 continue;
             }
 
-            std::cerr << "Fatal conversion error" << std::endl;
+            if (*next2 == '_')
+            {
+                const std::size_t real_js_start_idx = js_start_idx + 1;
+
+                const auto js_end_idx = [&]() -> std::optional<std::size_t>
+                {
+                    std::size_t n_braces = 1;
+
+                    for (std::size_t i = real_js_start_idx; i < source.size();
+                         ++i)
+                    {
+                        if (source[i] == '{')
+                        {
+                            ++n_braces;
+                            continue;
+                        }
+
+                        if (source[i] == '}')
+                        {
+                            --n_braces;
+                            if (n_braces == 0)
+                            {
+                                return i;
+                            }
+                        }
+                    }
+
+                    return std::nullopt;
+                }();
+
+                if (!js_end_idx.has_value())
+                {
+                    std::cerr << "Unterminated '@@" << *next2
+                              << "' directive (missing closing brace)\n";
+
+                    return false;
+                }
+
+                assert(js_end_idx.has_value());
+
+                curr_idx = *js_end_idx + 2;
+
+                const auto backtick0 = peek(0);
+                const auto backtick1 = peek(1);
+                const auto backtick2 = peek(2);
+
+                if (backtick0 != '`' || backtick1 != '`' || backtick2 != '`')
+                {
+                    std::cerr << "Unterminated '@@" << *next2
+                              << "' directive (expected ``` code block)\n";
+
+                    return false;
+                }
+
+                step_fwd();
+                step_fwd();
+                step_fwd();
+                assert(curr_idx < source.size());
+
+                const std::size_t lang_start_idx = curr_idx;
+
+                const auto lang_end_idx = [&]() -> std::optional<std::size_t>
+                {
+                    for (std::size_t i = lang_start_idx; i < source.size(); ++i)
+                    {
+                        if (source[i] == '\n')
+                        {
+                            return i;
+                        }
+                    }
+
+                    return std::nullopt;
+                }();
+
+                if (!lang_end_idx.has_value())
+                {
+                    std::cerr << "Unterminated '@@" << *next2
+                              << "' directive (malformed ``` code block)\n";
+
+                    return false;
+                }
+
+                assert(lang_end_idx.has_value());
+
+                const std::string_view extracted_lang = source.substr(
+                    lang_start_idx, *lang_end_idx - lang_start_idx);
+
+                const std::size_t code_start_idx = *lang_end_idx + 1;
+
+                const auto code_end_idx = [&]() -> std::optional<std::size_t>
+                {
+                    for (std::size_t i = code_start_idx; i < source.size() - 3;
+                         ++i)
+                    {
+                        if (source[i] == '\n' && source[i + 1] == '`' &&
+                            source[i + 2] == '`' && source[i + 3] == '`')
+                        {
+                            return i;
+                        }
+                    }
+
+                    return std::nullopt;
+                }();
+
+                if (!code_end_idx.has_value())
+                {
+                    std::cerr << "Unterminated '@@" << *next2
+                              << "' directive (open ``` code block)\n";
+
+                    return false;
+                }
+
+                assert(code_end_idx.has_value());
+
+                const std::string_view extracted_code = source.substr(
+                    code_start_idx, *code_end_idx - code_start_idx);
+
+                _tmp_buffer.clear();
+                _tmp_buffer.append("(() => { ");
+                _tmp_buffer.append(" const code = `");
+                _tmp_buffer.append(extracted_code);
+                _tmp_buffer.append("`; const lang = `");
+                _tmp_buffer.append(extracted_lang);
+                _tmp_buffer.append("`; return majsdown_set_output(");
+                copy_range_to_tl_buffer(real_js_start_idx, *js_end_idx);
+                _tmp_buffer.append("); })()");
+
+                std::cout << _tmp_buffer << std::endl;
+
+                const std::string_view null_terminated_js = _tmp_buffer;
+                ji.interpret(output_buffer, null_terminated_js);
+
+                curr_idx = *code_end_idx + 4;
+                continue;
+            }
+
+            std::cerr << "Fatal conversion error\n";
             return false;
         }
 

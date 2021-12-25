@@ -171,3 +171,77 @@ TEST_CASE("converter convert #8")
 
     do_test(source, expected);
 }
+
+TEST_CASE("converter convert #9")
+{
+    const std::string_view source = R"(
+hello @@{ (function() { return "world"; })() }
+)"sv;
+
+    const std::string_view expected = R"(
+hello world
+)"sv;
+
+    do_test(source, expected);
+}
+
+TEST_CASE("converter convert #10")
+{
+    const std::string_view source = R"(
+  TEST@@{function() { return "OK"; }()}
+)"sv;
+
+    const std::string_view expected = R"(
+  TESTOK
+)"sv;
+
+    do_test(source, expected);
+}
+
+TEST_CASE("converter convert #11")
+{
+    const std::string_view source = R"(
+@@_{code}
+```cpp
+int main() { }
+```
+)"sv;
+
+    const std::string_view expected = R"(
+int main() { }
+)"sv;
+
+    do_test(source, expected);
+}
+
+TEST_CASE("converter convert #12")
+{
+    const std::string_view source = R"(
+@@_{lang}
+```cpp
+int main() { }
+```
+)"sv;
+
+    const std::string_view expected = R"(
+cpp
+)"sv;
+
+    do_test(source, expected);
+}
+
+TEST_CASE("converter convert #13")
+{
+    const std::string_view source = R"(
+@@_{lang}
+```
+int main() { }
+```
+)"sv;
+
+    const std::string_view expected = R"(
+
+)"sv;
+
+    do_test(source, expected);
+}
