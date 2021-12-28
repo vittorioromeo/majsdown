@@ -328,7 +328,7 @@ struct converter::impl
 
                 _tmp_buffer.clear();
                 _tmp_buffer.append("(() => { ");
-                _tmp_buffer.append(" const code = `");
+                _tmp_buffer.append(" const code = String.raw`");
                 _tmp_buffer.append(extracted_code);
                 _tmp_buffer.append("`; const lang = `");
                 _tmp_buffer.append(extracted_lang);

@@ -261,3 +261,19 @@ TEST_CASE("converter convert #14")
 
     do_test(source, expected);
 }
+
+TEST_CASE("converter convert #15")
+{
+    const std::string_view source = R"(
+@@_{code}
+```cpp
+int main() { std::cout << "hello\n"; }
+```
+)"sv;
+
+    const std::string_view expected = R"(
+int main() { std::cout << "hello\n"; }
+)"sv;
+
+    do_test(source, expected);
+}
