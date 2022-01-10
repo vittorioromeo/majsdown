@@ -8,6 +8,31 @@
 
 using namespace std::string_view_literals;
 
+namespace {
+
+void do_test(const std::string_view source, const std::string_view expected)
+{
+    std::string output_buffer;
+    const bool ok = majsdown::converter{}.convert(output_buffer, source);
+
+    REQUIRE(ok);
+    REQUIRE(output_buffer == expected);
+}
+
+
+void make_tmp_file(const std::string_view path, const std::string_view contents)
+{
+    std::ofstream ofs(std::string{path});
+    REQUIRE(ofs);
+
+    ofs << contents;
+    ofs.flush();
+
+    REQUIRE(ofs);
+}
+
+} // namespace
+
 TEST_CASE("converter ctor/dtor")
 {
     majsdown::converter c;
@@ -16,8 +41,6 @@ TEST_CASE("converter ctor/dtor")
 
 TEST_CASE("converter convert #0")
 {
-    majsdown::converter c;
-
     const std::string_view source = R"(
 # hello world
 
@@ -27,20 +50,7 @@ some markdown here... test@mail.com
 *italic*
 )"sv;
 
-    std::string output_buffer;
-    const bool ok = c.convert(output_buffer, source);
-
-    REQUIRE(ok);
-    REQUIRE(output_buffer == source);
-}
-
-void do_test(const std::string_view source, const std::string_view expected)
-{
-    std::string output_buffer;
-    const bool ok = majsdown::converter{}.convert(output_buffer, source);
-
-    REQUIRE(ok);
-    REQUIRE(output_buffer == expected);
+    do_test(source, source);
 }
 
 TEST_CASE("converter convert #1")
@@ -127,17 +137,6 @@ hello world
 )"sv;
 
     do_test(source, expected);
-}
-
-void make_tmp_file(const std::string_view path, const std::string_view contents)
-{
-    std::ofstream ofs(std::string{path});
-    REQUIRE(ofs);
-
-    ofs << contents;
-    ofs.flush();
-
-    REQUIRE(ofs);
 }
 
 TEST_CASE("converter convert #7")
@@ -273,6 +272,38 @@ int main() { std::cout << "hello\n"; }
 
     const std::string_view expected = R"(
 int main() { std::cout << "hello\n"; }
+)"sv;
+
+    do_test(source, expected);
+}
+
+TEST_CASE("converter convert #16")
+{
+    make_tmp_file("./test.txt", "ABC1234");
+
+    const std::string_view source = R"(
+@@$ var x = majsdown_embed("./test.txt");
+@@{x}
+)"sv;
+
+    const std::string_view expected = R"(
+ABC1234
+)"sv;
+
+    do_test(source, expected);
+}
+
+TEST_CASE("converter convert #17")
+{
+    make_tmp_file("./test.txt", "ABC1234\\n");
+
+    const std::string_view source = R"(
+@@$ var x = majsdown_embed("./test.txt");
+@@{x}
+)"sv;
+
+    const std::string_view expected = R"(
+ABC1234\n
 )"sv;
 
     do_test(source, expected);

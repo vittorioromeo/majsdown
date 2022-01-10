@@ -67,11 +67,36 @@ struct converter::impl
         const auto copy_range_to_tl_buffer =
             [&](const std::size_t start_idx, const std::size_t end_idx) -> void
         {
-            for (std::size_t i = start_idx; i < end_idx; ++i)
+            assert(end_idx < source.size());
+            assert(start_idx <= end_idx);
+
+            _tmp_buffer.append(source.data() + start_idx, end_idx - start_idx);
+        };
+
+        const auto find_js_end_idx = [&](const std::size_t real_js_start_idx)
+            -> std::optional<std::size_t>
+        {
+            std::size_t n_braces = 1;
+
+            for (std::size_t i = real_js_start_idx; i < source.size(); ++i)
             {
-                assert(i < source.size());
-                _tmp_buffer.append(1, source[i]);
+                if (source[i] == '{')
+                {
+                    ++n_braces;
+                    continue;
+                }
+
+                if (source[i] == '}')
+                {
+                    --n_braces;
+                    if (n_braces == 0)
+                    {
+                        return i;
+                    }
+                }
             }
+
+            return std::nullopt;
         };
 
         std::string js_buffer;
@@ -159,33 +184,10 @@ struct converter::impl
                 js_buffer.clear();
             }
 
-
             if (*next2 == '{')
             {
-                const auto js_end_idx = [&]() -> std::optional<std::size_t>
-                {
-                    std::size_t n_braces = 1;
-
-                    for (std::size_t i = js_start_idx; i < source.size(); ++i)
-                    {
-                        if (source[i] == '{')
-                        {
-                            ++n_braces;
-                            continue;
-                        }
-
-                        if (source[i] == '}')
-                        {
-                            --n_braces;
-                            if (n_braces == 0)
-                            {
-                                return i;
-                            }
-                        }
-                    }
-
-                    return std::nullopt;
-                }();
+                const std::optional<std::size_t> js_end_idx =
+                    find_js_end_idx(js_start_idx);
 
                 if (!js_end_idx.has_value())
                 {
@@ -213,31 +215,8 @@ struct converter::impl
             {
                 const std::size_t real_js_start_idx = js_start_idx + 1;
 
-                const auto js_end_idx = [&]() -> std::optional<std::size_t>
-                {
-                    std::size_t n_braces = 1;
-
-                    for (std::size_t i = real_js_start_idx; i < source.size();
-                         ++i)
-                    {
-                        if (source[i] == '{')
-                        {
-                            ++n_braces;
-                            continue;
-                        }
-
-                        if (source[i] == '}')
-                        {
-                            --n_braces;
-                            if (n_braces == 0)
-                            {
-                                return i;
-                            }
-                        }
-                    }
-
-                    return std::nullopt;
-                }();
+                const std::optional<std::size_t> js_end_idx =
+                    find_js_end_idx(real_js_start_idx);
 
                 if (!js_end_idx.has_value())
                 {
@@ -251,9 +230,9 @@ struct converter::impl
 
                 curr_idx = *js_end_idx + 2;
 
-                const auto backtick0 = peek(0);
-                const auto backtick1 = peek(1);
-                const auto backtick2 = peek(2);
+                const std::optional<char> backtick0 = peek(0);
+                const std::optional<char> backtick1 = peek(1);
+                const std::optional<char> backtick2 = peek(2);
 
                 if (backtick0 != '`' || backtick1 != '`' || backtick2 != '`')
                 {

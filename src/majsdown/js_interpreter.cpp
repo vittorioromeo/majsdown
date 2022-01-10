@@ -46,50 +46,86 @@ struct tl_guard
 
 // ----------------------------------------------------------------------------
 
+static void eval_impl(
+    JSContext* context, const std::string_view source) noexcept
+{
+    JS_Eval(context, source.data(), source.size(), "<evalScript>",
+        JS_EVAL_TYPE_GLOBAL);
+}
+
 static void output_to_tl_buffer_pointee(JSContext* context, JSValueConst* argv)
 {
-    const JSValue strValue = JS_ToString(context, argv[0]);
-    const char* string_arg{JS_ToCString(context, strValue)};
+    const JSValue str_value{JS_ToString(context, argv[0])};
+    const char* string_arg{JS_ToCString(context, str_value)};
 
     std::string* const buffer_ptr{get_tl_buffer_ptr()};
     assert(buffer_ptr != nullptr);
     buffer_ptr->append(string_arg);
 }
 
+[[nodiscard]] static bool read_file_in_buffer(
+    const std::string_view path, std::string& buffer)
+{
+    std::ifstream ifs(path.data(), std::ios::binary | std::ios::ate);
+    if (!ifs)
+    {
+        std::cerr << "Failed to open file '" << buffer << "'\n";
+        return false;
+    }
+
+    const auto size = static_cast<std::streamsize>(ifs.tellg());
+    ifs.seekg(0, std::ios::beg);
+
+    buffer.clear();
+    buffer.resize(size);
+
+    if (!ifs.read(buffer.data(), size))
+    {
+        std::cerr << "Failed to read file '" << buffer << "'\n";
+        return false;
+    }
+
+    return true;
+}
+
 static void include_file(JSContext* context, JSValueConst* argv)
 {
-    const JSValue strValue = JS_ToString(context, argv[0]);
-    const char* string_arg{JS_ToCString(context, strValue)};
+    const JSValue str_value = JS_ToString(context, argv[0]);
+    const char* string_arg{JS_ToCString(context, str_value)};
 
     thread_local std::string tmp_buffer;
 
     tmp_buffer.clear();
     tmp_buffer.append(string_arg);
 
-    std::ifstream ifs(tmp_buffer, std::ios::binary | std::ios::ate);
-    if (!ifs)
+    if (!read_file_in_buffer(tmp_buffer, tmp_buffer))
     {
-        std::cerr << "Failed to open file '" << tmp_buffer << "'\n";
-        return;
-    }
-
-    const auto size = static_cast<std::streamsize>(ifs.tellg());
-    ifs.seekg(0, std::ios::beg);
-
-    tmp_buffer.clear();
-    tmp_buffer.resize(size);
-
-    if (!ifs.read(tmp_buffer.data(), size))
-    {
-        std::cerr << "Failed to read file '" << tmp_buffer << "'\n";
         return;
     }
 
     JSContext* const js_context_ptr = get_tl_js_context();
     assert(js_context_ptr != nullptr);
 
-    JS_Eval(context, tmp_buffer.data(), tmp_buffer.size(), "<evalScript>",
-        JS_EVAL_TYPE_GLOBAL);
+    eval_impl(context, tmp_buffer);
+}
+
+[[nodiscard]] static const char* embed_file(
+    JSContext* context, JSValueConst* argv)
+{
+    const JSValue str_value = JS_ToString(context, argv[0]);
+    const char* string_arg{JS_ToCString(context, str_value)};
+
+    thread_local std::string tmp_buffer;
+
+    tmp_buffer.clear();
+    tmp_buffer.append(string_arg);
+
+    if (!read_file_in_buffer(tmp_buffer, tmp_buffer))
+    {
+        return "ERROR";
+    }
+
+    return tmp_buffer.data();
 }
 
 // ----------------------------------------------------------------------------
@@ -107,6 +143,7 @@ struct js_interpreter::impl
 
         bind_function<&output_to_tl_buffer_pointee>("majsdown_set_output", 1);
         bind_function<&include_file>("majsdown_include", 1);
+        bind_function<&embed_file>("majsdown_embed", 1);
     }
 
     ~impl() noexcept
@@ -126,11 +163,18 @@ struct js_interpreter::impl
             (void)this_val;
             (void)argc;
 
-            FPtr(context, argv);
-            return JS_UNDEFINED;
+            if constexpr (std::is_void_v<decltype(FPtr(context, argv))>)
+            {
+                FPtr(context, argv);
+                return JS_UNDEFINED;
+            }
+            else
+            {
+                return JS_NewString(context, FPtr(context, argv));
+            }
         };
 
-        JSValue global_obj = JS_GetGlobalObject(_context);
+        const JSValue global_obj{JS_GetGlobalObject(_context)};
 
         JS_SetPropertyStr(_context, global_obj, name.data(),
             JS_NewCFunction(_context, +func, name.data(), n_args));
@@ -144,16 +188,14 @@ struct js_interpreter::impl
         tl_guard<&get_tl_js_context> js_context_guard{_context};
         tl_guard<&get_tl_buffer_ptr> buffer_ptr_guard{&output_buffer};
 
-        JS_Eval(_context, source.data(), source.size(), "<evalScript>",
-            JS_EVAL_TYPE_GLOBAL);
+        eval_impl(_context, source);
     }
 
     void interpret_discard(const std::string_view source) noexcept
     {
         tl_guard<&get_tl_js_context> js_context_guard{_context};
 
-        JS_Eval(_context, source.data(), source.size(), "<evalScript>",
-            JS_EVAL_TYPE_GLOBAL);
+        eval_impl(_context, source);
     }
 };
 
