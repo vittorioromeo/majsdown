@@ -121,6 +121,10 @@ bsl::cout << greeting << bsl::endl;
 </tr>
 </table>
 
+Possible use cases:
+
+- Automatically generate a Compiler Explorer link for a code block, see [`examples/embed_godbolt`](./examples/embed_godbolt).
+
 
 ### Special Functions
 
