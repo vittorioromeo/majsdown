@@ -147,3 +147,9 @@ Majsdown depends on:
 - [`quickjs`](https://github.com/vittorioromeo/quickjs): small embeddable JavaScript interpreter.
 
 The `majsdown-converter` application is written in C++20.
+
+## Related Projects
+
+- [`majsdown-syntax-highlighting`](https://github.com/vittorioromeo/majsdown-syntax-highlighting): provides TextMate syntax highlighting for `.mjsd` files, intended to be used with VSCode.
+
+- [`vittorioromeo/vscode-reveal`](https://github.com/vittorioromeo/vscode-reveal): own hackish fork of the `vscode-reveal` extension in order to add support for Majsdown.
