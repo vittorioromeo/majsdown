@@ -2,11 +2,21 @@
 
 > **The unholy union between Markdown and JavaScript.**
 
+
+<div align="center">
+  <a href="https://www.youtube.com/watch?v=IbMKlyoo_eA"><img src="https://img.youtube.com/vi/IbMKlyoo_eA/0.jpg" alt="IMAGE ALT TEXT"></a>
+  <a href="https://www.youtube.com/watch?v=IbMKlyoo_eA"><p>watch on Youtube</p></a>
+</div>
+
 ## In A Nutshell
 
 Majsdown (work-in-progress, experimental) is yet another flavour of Markdown that allows JavaScript code to be embedded directly as part of a document. The JavaScript code is then executed by an interpreter that ends up creating a final Markdown document. Basically, it provides a way to preprocess Markdown documents using JavaScript.
 
+<div align="center">
+
 ![](./misc/diagram0.png)
+
+</div>
 
 Any existing Markdown (`.md`) document is a valid Majsdown (`.mjsd`) document. The easiest way to use Majsdown is to invoke the converter from the command-line:
 
