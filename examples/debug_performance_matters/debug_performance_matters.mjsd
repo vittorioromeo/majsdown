@@ -1,0 +1,188 @@
+## Moving an int is slow
+
+### Debug peformance matters!
+
+<br>
+<br>
+
+Vittorio Romeo <br> <small>
+mail@vittorioromeo.com <br>
+[@supahvee1234](https://twitter.com/supahvee1234) <br>
+https://github.com/vittorioromeo/accu2022 </small>
+
+---
+
+```cpp
+int accumulate_range(int* begin, int* end)
+{
+    return std::accumulate(begin, end, 0);
+}
+```
+
+- GCC and Clang, compiling with `-O0`
+    - `accumulate_range` runs 1.4x slower in C\+\+20 compared to C\+\+17
+
+- Why?
+
+---
+
+@@$ function escapeCpp(code)
+@@$ {
+@@$     return code.replace(/\</g, `&lt;`);
+@@$ }
+
+@@$ function highlightCpp(lineRange, code)
+@@$ {
+@@$     return '<pre><code data-line-numbers="' + lineRange + '">'
+@@$            + escapeCpp(code) + '</code></pre>';
+@@$ }
+
+@@{highlightCpp("", `template <class _InputIterator, class _Tp>
+_Tp
+accumulate(_InputIterator __first,
+           _InputIterator __last,
+           _Tp __init)
+{
+    for (; __first != __last; ++__first)
+#if _LIBCPP_STD_VER > 17
+        __init = std::move(__init) + *__first;
+#else
+        __init = __init + *__first;
+#endif
+    return __init;
+}`)}
+
+---
+
+@@{highlightCpp("8-12", `template <class _InputIterator, class _Tp>
+_Tp
+accumulate(_InputIterator __first,
+           _InputIterator __last,
+           _Tp __init)
+{
+    for (; __first != __last; ++__first)
+#if _LIBCPP_STD_VER > 17
+        __init = std::move(__init) + *__first;
+#else
+        __init = __init + *__first;
+#endif
+    return __init;
+}`)}
+
+---
+
+- Wait, is `std::move` adding run-time overhead?
+
+- Isn't `std::move` just a cast?
+
+---
+
+```cpp
+template <class _Tp>
+[[nodiscard]] inline constexpr
+std::remove_reference_t<_Tp>&& move(_Tp&& __t) noexcept
+{
+    return static_cast<std::remove_reference_t<_Tp>&&>(__t);
+}
+```
+
+- Semantically, it is just a cast
+
+- To the compiler, it is just another *function call*
+
+- I.e. overhead unless inlining happens
+
+    - It doesn't in `-O0`
+
+---
+
+The same issue applies to many functions:
+
+- `std::move`
+- `std::forward`
+- `std::as_const`
+- `std::as_underlying`
+- `std::vector<T>::iterator::operator*`
+- `std::vector<T>::iterator::operator++`
+- `std::unique_ptr<T>::operator*`
+- *etc...*
+
+---
+
+In some fields, debug performance is very important:
+
+- E.g. games can't be unplayable in debug mode
+
+<br>
+<br>
+<br>
+
+**People are discouraged from using Modern C++**
+
+- So they write C-like code...
+
+- ...which has more bugs...
+
+- ...which needs more debugging.
+
+---
+
+## What can we do?
+
+---
+
+- `-Og` doesn't cut it
+
+    - Sometimes optimizes too much
+
+    - For Clang, it's the same as `-O1`
+
+    - MSVC doesn't have an equivalent
+
+---
+
+Some people resort to macros:
+
+```cpp
+#define MOV(...) \
+    static_cast< \
+        std::remove_reference_t< \
+            decltype(__VA_ARGS__)>&&>(__VA_ARGS__)
+
+#define FWD(...) \
+    static_cast<decltype(__VA_ARGS__)&&>(__VA_ARGS__)
+```
+
+<small>
+
+*(From https://www.foonathan.net/2020/09/move-forward/)*
+
+</small>
+
+---
+
+Some compilers are taking action:
+
+![](./tweet0.png)
+
+---
+
+If this matters to you, make your voice be heard!
+
+![](./tweet1.png)
+
+---
+
+- Links:
+    - GCC: [Bugzilla Report](https://gcc.gnu.org/bugzilla/show_bug.cgi?id=104719)
+    - Clang: [GitHub Issue](https://github.com/llvm/llvm-project/issues/53689)
+    - MSVC: [Developer Community Feedback](https://developercommunity.visualstudio.com/t/std::move-and-similar-functions-resu/1681875)
+
+<br>
+<br>
+<br>
+
+Vittorio Romeo <br> <small>
+mail@vittorioromeo.com <br>
+[@supahvee1234](https://twitter.com/supahvee1234) <br>
+https://github.com/vittorioromeo/accu2022 </small>

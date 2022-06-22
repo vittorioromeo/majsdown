@@ -1,0 +1,213 @@
+@@$ function wePic(name)
+@@$ {
+@@$     return `<section data-background="${name}.png" data-background-size="contain"></section>`;
+@@$ }
+
+## WORDLEXPR
+
+### Compile-Time Wordle
+
+<div style="font-size: 40%">...just why?</div>
+
+<br>
+<br>
+
+Vittorio Romeo <br> <small>
+mail@vittorioromeo.com <br>
+[@supahvee1234](https://twitter.com/supahvee1234) <br>
+https://github.com/vittorioromeo/accu2022 </small>
+
+---
+
+![](wordle.png)
+
+---
+
+@@{wePic("we0")}
+
+---
+
+@@{wePic("we1")}
+
+---
+
+@@{wePic("we2")}
+
+---
+
+@@{wePic("we3")}
+
+---
+
+@@{wePic("we4")}
+
+---
+
+@@{wePic("we5")}
+
+---
+
+@@{wePic("we6")}
+
+---
+
+@@{wePic("we7")}
+
+---
+
+@@{wePic("we8")}
+
+---
+
+@@{wePic("we9")}
+
+---
+
+@@{wePic("we10")}
+
+---
+
+@@{wePic("we11")}
+
+---
+
+### Try it
+
+- You can play Wordlexpr on Compiler Explorer:
+  <https://gcc.godbolt.org/z/4oo3PrvqY>
+
+- But how does it work...?
+
+---
+
+### High-level overview
+
+1. Produce arbitrary human-readable output as a compiler diagnostic
+
+2. Random number generation at compile-time
+
+3. Retain state and keep track of the player's progress in-between compilations
+
+---
+
+### error is the new printf
+
+- `static_assert` doesn't cut it
+    - It only accepts a *string literal*
+
+---
+
+```cpp
+template <char...> struct print;
+print<'a', 'b', 'c'> _{};
+```
+
+$\downarrow$
+
+```
+error: variable 'print<'a', 'b', 'c'> _'
+       has initializer but incomplete type
+    3 | print<'a', 'b', 'c'> _{};
+      |
+```
+
+---
+
+```cpp
+struct ct_str
+{
+    char        _data[512]{};
+    std::size_t _size{0};
+
+    template <std::size_t N>
+    constexpr ct_str(const char (&str)[N])
+        : _data{}, _size{N - 1}
+    {
+        for(std::size_t i = 0; i < _size; ++i)
+            _data[i] = str[i];
+    }
+};
+```
+
+$\downarrow$
+
+```cpp
+template <ct_str> struct print;
+print<"Welcome to Wordlexpr!"> _{};
+```
+
+---
+
+```cpp
+constexpr ct_str test()
+{
+    ct_str s{"Hi XXCU!"};
+    s._data[4] = 'A';
+    s._data[5] = 'C';
+    return s;
+}
+
+print<test()> _{};
+```
+
+$\downarrow$
+
+```
+error: variable 'print<ct_str{"Hi ACCU!", 9}> _' has
+       initializer but incomplete type
+   33 | print<test()> _{};
+      |
+```
+
+---
+
+### Compile-time RNG
+
+```bash
+g++ -std=c++20 ./wordlexpr.cpp -DSEED=123
+```
+
+$\downarrow$
+
+```cpp
+constexpr const ct_str& get_target_word()
+{
+    return wordlist[SEED % wordlist_size];
+}
+```
+
+---
+
+### retaining state and making progress
+
+```bash
+g++ -std=c++20 ./wordlexpr.cpp -DSEED=123
+    -DSTATE=DJYHULDOPALISHJRBFJNSWAEIM
+```
+
+$\downarrow$
+
+```cpp
+struct state
+{
+    std::size_t _n_guesses{0};
+    ct_str      _guesses[5];
+};
+
+constexpr ct_str encode_state(const state&  s);
+constexpr state  decode_state(const ct_str& str);
+```
+
+---
+
+### Thanks!
+
+[vittorioromeo.com/index/blog/wordlexpr.html](https://vittorioromeo.info/index/blog/wordlexpr.html)
+
+<br>
+<br>
+
+Vittorio Romeo <br> <small>
+mail@vittorioromeo.com <br>
+[@supahvee1234](https://twitter.com/supahvee1234) <br>
+https://github.com/vittorioromeo/accu2022 </small>

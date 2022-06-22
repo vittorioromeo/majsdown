@@ -1,0 +1,21 @@
+@@$ function wrapInCodeBlock(code, lang)
+@@$ {
+@@$     return "```" + lang + "\n" + code + "\n```";
+@@$ }
+
+@@$ function replaceStdNamespace(ns, code, lang)
+@@$ {
+@@$     return wrapInCodeBlock(
+@@$         code.replace(/std::/g, `${ns}::`), lang
+@@$     );
+@@$ }
+
+@@$ const namespace = 'std';
+
+## Code Block Functions
+
+@@_{replaceStdNamespace(namespace, code, lang)}
+```cpp
+std::string greeting = "hello world";
+std::cout << greeting << std::endl;
+```

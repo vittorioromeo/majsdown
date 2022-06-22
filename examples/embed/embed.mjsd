@@ -1,0 +1,7 @@
+# Embed Test
+
+@@{1000 + 10}
+
+```cpp
+@@{majsdown_embed(`${SLIDE_PARENT_DIRECTORY}/main.cpp`).trimEnd()}
+```
