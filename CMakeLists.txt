@@ -109,6 +109,8 @@ CPMAddPackage(
 # -----------------------------------------------------------------------------
 
 CPMAddPackage("gh:onqtam/doctest#2.4.7")
+list(APPEND CMAKE_MODULE_PATH ${doctest_SOURCE_DIR}/scripts/cmake)
+include(doctest)
 
 #
 #
@@ -214,7 +216,7 @@ foreach(_file ${MAJSDOWN_TEST_LIST})
 
     add_executable(${_target} EXCLUDE_FROM_ALL "${_file}")
     target_link_libraries(${_target} doctest majsdown)
-    add_test(NAME ${_target} COMMAND ${_target})
+    doctest_discover_tests(${_target})
     add_dependencies(check ${_target})
 endforeach()
 
