@@ -55,6 +55,9 @@ static void eval_impl(
 
 static void output_to_tl_buffer_pointee(JSContext* context, JSValueConst* argv)
 {
+    // TODO: add a way to print out JS errors so that they can be seen in the
+    // output
+
     const JSValue str_value{JS_ToString(context, argv[0])};
     const char* string_arg{JS_ToCString(context, str_value)};
 
