@@ -172,6 +172,7 @@ struct converter::impl
                 copy_range_to_tl_buffer(js_start_idx, *js_end_idx);
 
                 js_buffer.append(_tmp_buffer);
+                js_buffer.append("\n");
                 // const std::string_view null_terminated_js = _tmp_buffer;
                 // ji.interpret_discard(null_terminated_js);
 

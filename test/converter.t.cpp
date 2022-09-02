@@ -308,3 +308,72 @@ ABC1234\n
 
     do_test(source, expected);
 }
+
+TEST_CASE("converter convert #18")
+{
+    const std::string_view source = R"(
+@@$ const value = 10; // the value
+@@$ const otherValue = 12; // the other value
+@@$ const lastValue = 14;
+@@{value + otherValue + lastValue}
+)"sv;
+
+    const std::string_view expected = R"(
+36
+)"sv;
+
+    do_test(source, expected);
+}
+
+TEST_CASE("converter convert #19")
+{
+    const std::string_view source = R"(
+@@$ const value = 10; // the value
+@@{value}
+)"sv;
+
+    const std::string_view expected = R"(
+10
+)"sv;
+
+    do_test(source, expected);
+}
+
+TEST_CASE("converter convert #20")
+{
+    const std::string_view source = R"(
+@@$ const value = 10; // the value
+)"sv;
+
+    const std::string_view expected = R"(
+)"sv;
+
+    do_test(source, expected);
+}
+
+TEST_CASE("converter convert #21")
+{
+    const std::string_view source = R"(
+@@$ const value = 10; // the value
+)"sv;
+
+    const std::string_view expected = R"(
+)"sv;
+
+    do_test(source, expected);
+}
+
+TEST_CASE("converter convert #22")
+{
+    const std::string_view source = R"(
+@@$ const value = 10; // the value
+@@$ const otherValue = 12;
+@@{value + otherValue}
+)"sv;
+
+    const std::string_view expected = R"(
+22
+)"sv;
+
+    do_test(source, expected);
+}
