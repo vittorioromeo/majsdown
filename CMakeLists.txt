@@ -166,7 +166,7 @@ file(GLOB_RECURSE MAJSDOWN_SRC_LIST "${MAJSDOWN_SRC_DIR}/majsdown/*.cpp")
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS true)
 
-# TODO: LTO and PCH
+# TODO: LTO
 
 #
 #
@@ -186,6 +186,15 @@ target_link_libraries(majsdown PRIVATE libmarkdown quickjs)
 
 add_executable(majsdown-converter "${MAJSDOWN_SRC_DIR}/majsdown-converter/main.cpp")
 target_link_libraries(majsdown-converter PRIVATE majsdown)
+
+#
+#
+# -----------------------------------------------------------------------------
+# PCH
+# -----------------------------------------------------------------------------
+
+target_precompile_headers(majsdown PRIVATE "${MAJSDOWN_INC_DIR}/majsdown/pch.hpp")
+target_precompile_headers(majsdown-converter REUSE_FROM majsdown)
 
 #
 #
@@ -218,5 +227,6 @@ foreach(_file ${MAJSDOWN_TEST_LIST})
     target_link_libraries(${_target} doctest majsdown)
     doctest_discover_tests(${_target})
     add_dependencies(check ${_target})
+    target_precompile_headers(${_target} REUSE_FROM majsdown)
 endforeach()
 
