@@ -6,31 +6,32 @@
 int main()
 {
     std::ios_base::sync_with_stdio(false);
+    std::cin.tie(nullptr);
 
     std::string input_buffer;
     input_buffer.reserve(128000);
 
-    {
-        std::string line_input;
-        line_input.reserve(512);
+    std::string line_and_output_buffer;
+    line_and_output_buffer.reserve(512);
 
-        while (std::getline(std::cin, line_input))
-        {
-            input_buffer.append(line_input);
-            input_buffer.append(1, '\n');
-        }
+    while (std::getline(std::cin, line_and_output_buffer))
+    {
+        input_buffer.append(line_and_output_buffer);
+        input_buffer.append(1, '\n');
     }
 
-    majsdown::converter converter;
+    line_and_output_buffer.clear();
+    line_and_output_buffer.reserve(input_buffer.size() + 1024);
 
-    std::string output_buffer;
-    output_buffer.reserve(input_buffer.size() + 1024);
-
-    if (!converter.convert(output_buffer, input_buffer))
+    if (majsdown::converter converter;
+        !converter.convert(line_and_output_buffer, input_buffer))
     {
+        std::cerr << "Fatal error during majsdown conversion process."
+                  << std::endl;
+
         return 1;
     }
 
-    std::cout << output_buffer << std::endl;
+    std::cout << line_and_output_buffer << std::endl;
     return 0;
 }

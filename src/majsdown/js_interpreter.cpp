@@ -3,14 +3,15 @@
 #include <quickjs-libc.h>
 #include <quickjs.h>
 
-#include <cassert>
 #include <fstream>
 #include <iostream>
 #include <memory>
-#include <string>
 #include <string_view>
+#include <string>
 #include <type_traits>
 #include <utility>
+
+#include <cassert>
 
 namespace majsdown {
 
