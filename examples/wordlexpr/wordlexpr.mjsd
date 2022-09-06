@@ -1,3 +1,20 @@
+---
+theme: white
+enableMenu: false
+slideNumber: false
+transition: none
+margin: 0
+---
+
+<link rel="stylesheet" href="style.css">
+
+<style>
+.reveal .slide-background-content
+{
+    filter: invert(1);
+}
+</style>
+
 @@$ function wePic(name)
 @@$ {
 @@$     return `<section data-background="${name}.png" data-background-size="contain"></section>`;
@@ -7,15 +24,15 @@
 
 ### Compile-Time Wordle
 
-<div style="font-size: 40%">...just why?</div>
+<div style="font-size: 40%">...I'm sorry...</div>
 
 <br>
 <br>
 
 Vittorio Romeo <br> <small>
-mail@vittorioromeo.com <br>
+<mail@vittorioromeo.com> <br>
 [@supahvee1234](https://twitter.com/supahvee1234) <br>
-https://github.com/vittorioromeo/accu2022 </small>
+[github.com/vittorioromeo/corecpp2022](https://github.com/vittorioromeo/corecpp2022) </small>
 
 ---
 
@@ -141,9 +158,9 @@ print<"Welcome to Wordlexpr!"> _{};
 ```cpp
 constexpr ct_str test()
 {
-    ct_str s{"Hi XXCU!"};
-    s._data[4] = 'A';
-    s._data[5] = 'C';
+    ct_str s{"Hi XXreC++!"};
+    s._data[4] = 'C';
+    s._data[5] = 'o';
     return s;
 }
 
@@ -153,7 +170,7 @@ print<test()> _{};
 $\downarrow$
 
 ```
-error: variable 'print<ct_str{"Hi ACCU!", 9}> _' has
+error: variable 'print<ct_str{"Hi CoreC++!", 9}> _' has
        initializer but incomplete type
    33 | print<test()> _{};
       |
@@ -208,9 +225,9 @@ constexpr state  decode_state(const ct_str& str);
 <br>
 
 Vittorio Romeo <br> <small>
-mail@vittorioromeo.com <br>
+<mail@vittorioromeo.com> <br>
 [@supahvee1234](https://twitter.com/supahvee1234) <br>
-https://github.com/vittorioromeo/accu2022 </small>
+[github.com/vittorioromeo/corecpp2022](https://github.com/vittorioromeo/corecpp2022) </small>
 
 ---
 
@@ -224,8 +241,19 @@ https://github.com/vittorioromeo/accu2022 </small>
 ![](./emcpps_qr.png)
 
 </div>
-<div style="position: absolute; zoom: 100%; left: 560px; top: 450px;">
+<div style="position: absolute; zoom: 100%; left: 520px; top: 450px; font-size: 75%;">
 
-<https://emcpps.com>
+<div style="font-size: 125%; margin-top: -10px;">
+
+[**emcpps.com**](https://emcpps.com)
 
 </div>
+
+<mail@vittorioromeo.com>
+[@supahvee1234](https://twitter.com/supahvee1234)
+[vittorioromeo.com](https://vittorioromeo.com)
+
+</div>
+</div>
+
+
