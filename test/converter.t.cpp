@@ -433,3 +433,21 @@ TEST_CASE("converter convert #24")
 
     do_test(source, expected);
 }
+
+TEST_CASE("converter convert #25")
+{
+    make_tmp_file("./i.js", "var i = (() => 10)();");
+    make_tmp_file("./j.js", "majsdown_include(\"./i.js\"); majsdown_include(\"./i.js\");");
+    make_tmp_file("./k.js", "majsdown_include(\"./j.js\"); majsdown_include(\"./j.js\");");
+
+    const std::string_view source = R"(
+@@$ majsdown_include("./j.js");
+@@{i + 5}
+)"sv;
+
+    const std::string_view expected = R"(
+15
+)"sv;
+
+    do_test(source, expected);
+}
