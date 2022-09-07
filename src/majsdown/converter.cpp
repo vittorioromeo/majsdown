@@ -20,6 +20,7 @@ private:
     std::string _js_buffer;
     js_interpreter _js_interpreter;
     std::size_t _curr_idx;
+    std::size_t _curr_line;
 
     void copy_range_to_tmp_buffer(
         const std::size_t start_idx, const std::size_t end_idx)
@@ -98,9 +99,14 @@ private:
         return std::nullopt;
     }
 
+    [[nodiscard]] std::ostream& error_diagnostic()
+    {
+        return std::cerr << "L(" << _curr_line << "): ";
+    }
+
 public:
     [[nodiscard]] explicit converter_impl(const std::string_view source)
-        : _source{source}, _curr_idx{0}
+        : _source{source}, _curr_idx{0}, _curr_line{0}
     {}
 
     ~converter_impl() noexcept
@@ -114,6 +120,11 @@ public:
 
             if (c != '@')
             {
+                if (c == '\n')
+                {
+                    ++_curr_line;
+                }
+
                 output_buffer.append(1, c);
                 step_fwd(1);
 
@@ -152,8 +163,8 @@ public:
             const std::size_t js_start_idx = _curr_idx + 3;
             if (js_start_idx >= _source.size())
             {
-                std::cerr << "Unterminated '@@" << *next2
-                          << "' directive (reached end of source)\n";
+                error_diagnostic() << "Unterminated '@@" << *next2
+                                   << "' directive (reached end of source)\n";
 
                 return false;
             }
@@ -170,8 +181,8 @@ public:
 
                 if (!js_end_idx.has_value())
                 {
-                    std::cerr << "Unterminated '@@" << *next2
-                              << "' directive (missing newline)\n";
+                    error_diagnostic() << "Unterminated '@@" << *next2
+                                       << "' directive (missing newline)\n";
 
                     return false;
                 }
@@ -203,8 +214,9 @@ public:
 
                 if (!js_end_idx.has_value())
                 {
-                    std::cerr << "Unterminated '@@" << *next2
-                              << "' directive (missing closing brace)\n";
+                    error_diagnostic()
+                        << "Unterminated '@@" << *next2
+                        << "' directive (missing closing brace)\n";
 
                     return false;
                 }
@@ -235,8 +247,9 @@ public:
 
                 if (!js_end_idx.has_value())
                 {
-                    std::cerr << "Unterminated '@@" << *next2
-                              << "' directive (missing closing brace)\n";
+                    error_diagnostic()
+                        << "Unterminated '@@" << *next2
+                        << "' directive (missing closing brace)\n";
 
                     return false;
                 }
@@ -251,8 +264,9 @@ public:
 
                 if (backtick0 != '`' || backtick1 != '`' || backtick2 != '`')
                 {
-                    std::cerr << "Unterminated '@@" << *next2
-                              << "' directive (expected ``` code block)\n";
+                    error_diagnostic()
+                        << "Unterminated '@@" << *next2
+                        << "' directive (expected ``` code block)\n";
 
                     return false;
                 }
@@ -278,8 +292,9 @@ public:
 
                 if (!lang_end_idx.has_value())
                 {
-                    std::cerr << "Unterminated '@@" << *next2
-                              << "' directive (malformed ``` code block)\n";
+                    error_diagnostic()
+                        << "Unterminated '@@" << *next2
+                        << "' directive (malformed ``` code block)\n";
 
                     return false;
                 }
@@ -308,8 +323,8 @@ public:
 
                 if (!code_end_idx.has_value())
                 {
-                    std::cerr << "Unterminated '@@" << *next2
-                              << "' directive (open ``` code block)\n";
+                    error_diagnostic() << "Unterminated '@@" << *next2
+                                       << "' directive (open ``` code block)\n";
 
                     return false;
                 }
