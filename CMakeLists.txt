@@ -10,12 +10,13 @@ cmake_minimum_required(VERSION 3.9)
 option(FORCE_COLORED_OUTPUT "Always produce ANSI-colored output (GNU/Clang only)." FALSE)
 
 if(${FORCE_COLORED_OUTPUT})
-    if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-        add_compile_options("-fdiagnostics-color=always")
-    elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-        add_compile_options("-fcolor-diagnostics")
+    if(("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU") OR (CMAKE_CXX_COMPILER MATCHES "g\\+\\+"))
+       add_compile_options("-fdiagnostics-color=always")
+    elseif(("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang") OR (CMAKE_CXX_COMPILER MATCHES "clang\\+\\+"))
+       add_compile_options("-fcolor-diagnostics")
     endif()
 endif()
+
 
 #
 #
@@ -167,6 +168,19 @@ file(GLOB_RECURSE MAJSDOWN_SRC_LIST "${MAJSDOWN_SRC_DIR}/majsdown/*.cpp")
 set(CMAKE_EXPORT_COMPILE_COMMANDS true)
 
 # TODO: LTO
+
+#
+#
+# -----------------------------------------------------------------------------
+# CPM Workaround for SYSTEM includes
+# -----------------------------------------------------------------------------
+
+function(make_target_system target)
+    get_property(${target}_include_dirs TARGET ${target} PROPERTY INTERFACE_INCLUDE_DIRECTORIES)
+    set_property(TARGET ${target} PROPERTY INTERFACE_SYSTEM_INCLUDE_DIRECTORIES ${${target}_include_dirs})
+endfunction()
+
+make_target_system(quickjs)
 
 #
 #
