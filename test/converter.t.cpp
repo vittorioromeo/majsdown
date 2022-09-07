@@ -417,4 +417,19 @@ bsl::cout << greeting << bsl::endl;
     do_test(source, expected);
 }
 
+TEST_CASE("converter convert #24")
+{
+    make_tmp_file("./i.js", "var i = (() => 10)();");
+    make_tmp_file("./j.js", "majsdown_include(\"./i.js\");");
 
+    const std::string_view source = R"(
+@@$ majsdown_include("./j.js");
+@@{i + 5}
+)"sv;
+
+    const std::string_view expected = R"(
+15
+)"sv;
+
+    do_test(source, expected);
+}

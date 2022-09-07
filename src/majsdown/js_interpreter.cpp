@@ -6,8 +6,8 @@
 #include <fstream>
 #include <iostream>
 #include <memory>
-#include <string_view>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 
@@ -19,12 +19,6 @@ namespace majsdown {
 {
     thread_local std::string* buffer_ptr{nullptr};
     return buffer_ptr;
-}
-
-[[nodiscard]] static JSContext*& get_tl_js_context() noexcept
-{
-    thread_local JSContext* js_context_ptr{nullptr};
-    return js_context_ptr;
 }
 
 // ----------------------------------------------------------------------------
@@ -47,10 +41,10 @@ struct tl_guard
 
 // ----------------------------------------------------------------------------
 
-static void eval_impl(
+static JSValue eval_impl(
     JSContext* context, const std::string_view source) noexcept
 {
-    JS_Eval(context, source.data(), source.size(), "<evalScript>",
+    return JS_Eval(context, source.data(), source.size(), "<evalScript>",
         JS_EVAL_TYPE_GLOBAL);
 }
 
@@ -73,6 +67,7 @@ static void output_to_tl_buffer_pointee(JSContext* context, JSValueConst* argv)
     std::ifstream ifs(path.data(), std::ios::binary | std::ios::ate);
     if (!ifs)
     {
+        // TODO: add line number to this error
         std::cerr << "Failed to open file '" << buffer << "'\n";
         return false;
     }
@@ -85,6 +80,7 @@ static void output_to_tl_buffer_pointee(JSContext* context, JSValueConst* argv)
 
     if (!ifs.read(buffer.data(), size))
     {
+        // TODO: add line number to this error
         std::cerr << "Failed to read file '" << buffer << "'\n";
         return false;
     }
@@ -106,9 +102,6 @@ static void include_file(JSContext* context, JSValueConst* argv)
     {
         return;
     }
-
-    JSContext* const js_context_ptr = get_tl_js_context();
-    assert(js_context_ptr != nullptr);
 
     eval_impl(context, tmp_buffer);
 }
@@ -186,20 +179,16 @@ struct js_interpreter::impl
         JS_FreeValue(_context, global_obj);
     }
 
-    void interpret(
+    JSValue interpret(
         std::string& output_buffer, const std::string_view source) noexcept
     {
-        tl_guard<&get_tl_js_context> js_context_guard{_context};
         tl_guard<&get_tl_buffer_ptr> buffer_ptr_guard{&output_buffer};
-
-        eval_impl(_context, source);
+        return eval_impl(_context, source);
     }
 
-    void interpret_discard(const std::string_view source) noexcept
+    JSValue interpret_discard(const std::string_view source) noexcept
     {
-        tl_guard<&get_tl_js_context> js_context_guard{_context};
-
-        eval_impl(_context, source);
+        return eval_impl(_context, source);
     }
 };
 
