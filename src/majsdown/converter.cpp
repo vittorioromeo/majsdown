@@ -101,13 +101,15 @@ private:
 
     [[nodiscard]] std::ostream& error_diagnostic()
     {
-        return std::cerr << "L(" << _curr_line << "): ";
+        return std::cerr << "((MJSD ERROR))(" << _curr_line << "): ";
     }
 
 public:
     [[nodiscard]] explicit converter_impl(const std::string_view source)
         : _source{source}, _curr_idx{0}, _curr_line{0}
-    {}
+    {
+        _js_interpreter.set_current_diagnostics_line(_curr_line);
+    }
 
     ~converter_impl() noexcept
     {}
@@ -123,6 +125,7 @@ public:
                 if (c == '\n')
                 {
                     ++_curr_line;
+                    _js_interpreter.set_current_diagnostics_line(_curr_line);
                 }
 
                 output_buffer.append(1, c);
@@ -164,7 +167,7 @@ public:
             if (js_start_idx >= _source.size())
             {
                 error_diagnostic() << "Unterminated '@@" << *next2
-                                   << "' directive (reached end of source)\n";
+                                   << "' directive (reached end of source)\n\n";
 
                 return false;
             }
@@ -182,7 +185,7 @@ public:
                 if (!js_end_idx.has_value())
                 {
                     error_diagnostic() << "Unterminated '@@" << *next2
-                                       << "' directive (missing newline)\n";
+                                       << "' directive (missing newline)\n\n";
 
                     return false;
                 }
@@ -350,7 +353,9 @@ public:
                 continue;
             }
 
-            std::cerr << "Fatal conversion error\n";
+            std::cerr << "((MJSD ERROR))(" << _curr_line
+                      << "): Fatal conversion error\n\n";
+
             return false;
         }
 

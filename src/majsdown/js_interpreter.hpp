@@ -21,6 +21,8 @@ public:
         std::string& output_buffer, const std::string_view source) noexcept;
 
     void interpret_discard(const std::string_view source) noexcept;
+
+    void set_current_diagnostics_line(const std::size_t line) noexcept;
 };
 
 } // namespace majsdown

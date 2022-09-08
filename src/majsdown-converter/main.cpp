@@ -26,7 +26,8 @@ int main()
     if (majsdown::converter converter;
         !converter.convert(line_and_output_buffer, input_buffer))
     {
-        std::cerr << "Fatal error during majsdown conversion process."
+        std::cerr << "((MJSD ERROR))(?): Fatal error during majsdown "
+                     "conversion process.\n"
                   << std::endl;
 
         return 1;

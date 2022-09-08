@@ -21,6 +21,12 @@ namespace majsdown {
     return buffer_ptr;
 }
 
+[[nodiscard]] static std::size_t& get_tl_diagnostics_line() noexcept
+{
+    thread_local std::size_t diagnostics_line{0};
+    return diagnostics_line;
+}
+
 // ----------------------------------------------------------------------------
 
 template <auto FPtr>
@@ -50,9 +56,6 @@ static JSValue eval_impl(
 
 static void output_to_tl_buffer_pointee(JSContext* context, JSValueConst* argv)
 {
-    // TODO: add a way to print out JS errors so that they can be seen in the
-    // output
-
     const JSValue str_value{JS_ToString(context, argv[0])};
     const char* string_arg{JS_ToCString(context, str_value)};
 
@@ -61,14 +64,27 @@ static void output_to_tl_buffer_pointee(JSContext* context, JSValueConst* argv)
     buffer_ptr->append(string_arg);
 }
 
+[[nodiscard]] static std::ostream& error_diagnostic(
+    const char* type, const std::size_t line)
+{
+    return std::cerr << "((" << type << " ERROR))(" << line << "): ";
+}
+
 [[nodiscard]] static bool read_file_in_buffer(
     const std::string_view path, std::string& buffer)
 {
+    const auto get_diagnostic_line = [&]() -> std::string
+    {
+        const std::size_t diagnostics_line = get_tl_diagnostics_line();
+        return diagnostics_line == 0 ? "?" : std::to_string(diagnostics_line);
+    };
+
     std::ifstream ifs(path.data(), std::ios::binary | std::ios::ate);
     if (!ifs)
     {
-        // TODO: add line number to this error
-        std::cerr << "Failed to open file '" << buffer << "'\n";
+        std::cerr << "((IO ERROR))(" << get_diagnostic_line()
+                  << "): Failed to open file '" << buffer << "'\n\n";
+
         return false;
     }
 
@@ -80,8 +96,9 @@ static void output_to_tl_buffer_pointee(JSContext* context, JSValueConst* argv)
 
     if (!ifs.read(buffer.data(), size))
     {
-        // TODO: add line number to this error
-        std::cerr << "Failed to read file '" << buffer << "'\n";
+        std::cerr << "((IO ERROR))(" << get_diagnostic_line()
+                  << "): Failed to read file '" << buffer << "'\n\n";
+
         return false;
     }
 
@@ -119,7 +136,7 @@ static void include_file(JSContext* context, JSValueConst* argv)
 
     if (!read_file_in_buffer(tmp_buffer, tmp_buffer))
     {
-        return "ERROR";
+        return "((MJSD ERROR)): Failure reading file to be embedded";
     }
 
     return tmp_buffer.data();
@@ -129,26 +146,14 @@ static void include_file(JSContext* context, JSValueConst* argv)
 
 struct js_interpreter::impl
 {
+private:
     JSRuntime* _runtime;
     JSContext* _context;
+    std::size_t _curr_diagnostics_line;
 
-    [[nodiscard]] explicit impl() noexcept
-        : _runtime{JS_NewRuntime()}, _context{JS_NewContext(_runtime)}
+    [[nodiscard]] std::ostream& error_diagnostic(const char* type)
     {
-        // js_init_module_std(_context, "std");
-        // js_init_module_os(_context, "os");
-
-        bind_function<&output_to_tl_buffer_pointee>("majsdown_set_output", 1);
-        bind_function<&include_file>("majsdown_include", 1);
-        bind_function<&embed_file>("majsdown_embed", 1);
-    }
-
-    ~impl() noexcept
-    {
-        JS_RunGC(_runtime);
-
-        JS_FreeContext(_context);
-        JS_FreeRuntime(_runtime);
+        return ::majsdown::error_diagnostic(type, _curr_diagnostics_line);
     }
 
     template <auto FPtr>
@@ -179,16 +184,56 @@ struct js_interpreter::impl
         JS_FreeValue(_context, global_obj);
     }
 
+    [[nodiscard]] JSValue check_js_errors(const JSValue& js_value)
+    {
+        if (JS_IsException(js_value) || JS_IsError(_context, js_value))
+        {
+            error_diagnostic("JS")
+                << JS_ToCString(_context, JS_GetException(_context)) << "\n\n";
+
+            return JS_UNDEFINED;
+        }
+
+        return js_value;
+    }
+
+public:
+    [[nodiscard]] explicit impl() noexcept
+        : _runtime{JS_NewRuntime()},
+          _context{JS_NewContext(_runtime)},
+          _curr_diagnostics_line{0}
+    {
+        // js_init_module_std(_context, "std");
+        // js_init_module_os(_context, "os");
+
+        bind_function<&output_to_tl_buffer_pointee>("majsdown_set_output", 1);
+        bind_function<&include_file>("majsdown_include", 1);
+        bind_function<&embed_file>("majsdown_embed", 1);
+    }
+
+    ~impl() noexcept
+    {
+        JS_RunGC(_runtime);
+
+        JS_FreeContext(_context);
+        JS_FreeRuntime(_runtime);
+    }
+
     JSValue interpret(
         std::string& output_buffer, const std::string_view source) noexcept
     {
         tl_guard<&get_tl_buffer_ptr> buffer_ptr_guard{&output_buffer};
-        return eval_impl(_context, source);
+        return check_js_errors(eval_impl(_context, source));
     }
 
     JSValue interpret_discard(const std::string_view source) noexcept
     {
-        return eval_impl(_context, source);
+        return check_js_errors(eval_impl(_context, source));
+    }
+
+    void set_current_diagnostics_line(const std::size_t line) noexcept
+    {
+        get_tl_diagnostics_line() = _curr_diagnostics_line = line;
     }
 };
 
@@ -208,6 +253,12 @@ void js_interpreter::interpret(
 void js_interpreter::interpret_discard(const std::string_view source) noexcept
 {
     _impl->interpret_discard(source);
+}
+
+void js_interpreter::set_current_diagnostics_line(
+    const std::size_t line) noexcept
+{
+    _impl->set_current_diagnostics_line(line);
 }
 
 } // namespace majsdown
