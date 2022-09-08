@@ -5,7 +5,7 @@ set -e
 echo ""
 echo ""
 echo "--------------------------------------------------------------------"
-echo "| RUNNING CMAKE IN RELEASE MODE (NINJA)                            |"
+echo "| RUNNING CMAKE IN DEBUG MODE (NINJA)                              |"
 echo "--------------------------------------------------------------------"
 echo ""
 
