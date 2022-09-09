@@ -73,13 +73,13 @@ private:
         return std::nullopt;
     }
 
-    struct find_js_end_result
+    struct find_result
     {
-        std::size_t _end_idx;
+        std::size_t _idx;
         std::size_t _n_newlines;
     };
 
-    [[nodiscard]] std::optional<find_js_end_result> find_js_end_idx(
+    [[nodiscard]] std::optional<find_result> find_js_end_idx(
         const std::size_t real_js_start_idx)
     {
         std::size_t n_newlines = 0;
@@ -104,8 +104,7 @@ private:
                 --n_braces;
                 if (n_braces == 0)
                 {
-                    return find_js_end_result{
-                        ._end_idx = i, ._n_newlines = n_newlines};
+                    return find_result{._idx = i, ._n_newlines = n_newlines};
                 }
             }
         }
@@ -113,8 +112,8 @@ private:
         return std::nullopt;
     }
 
-    [[nodiscard]] std::optional<find_js_end_result>
-    find_js_end_idx_inline_discard(const std::size_t real_js_start_idx)
+    [[nodiscard]] std::optional<find_result> find_js_end_idx_block_statement(
+        const std::size_t real_js_start_idx)
     {
         std::size_t n_newlines = 0;
 
@@ -128,24 +127,29 @@ private:
 
             if (_source[i] == '}' && _source[i + 1] == '$')
             {
-                return find_js_end_result{
-                    ._end_idx = i, ._n_newlines = n_newlines};
+                return find_result{._idx = i, ._n_newlines = n_newlines};
             }
         }
 
         return std::nullopt;
     }
 
-    [[nodiscard]] std::ostream& error_diagnostic()
+    [[nodiscard]] std::ostream& error_diagnostic_stream()
     {
         return std::cerr << "((MJSD ERROR))(" << _curr_line << "): ";
     }
 
-    void error_diagnostic_unterminated(
-        const std::string_view disambiguator, const std::string_view reason)
+    void error_diagnostic_directive(
+        const std::string_view& disambiguator, const std::string_view& reason)
     {
-        error_diagnostic() << "Unterminated '@@" << disambiguator
-                           << "' directive (" << reason << ")\n\n";
+        error_diagnostic_stream() << "Error in '@@" << disambiguator
+                                  << "' directive (" << reason << ")\n\n";
+    }
+
+    void error_diagnostic_directive(
+        const char disambiguator, const std::string_view& reason)
+    {
+        error_diagnostic_directive(std::string_view{&disambiguator, 1}, reason);
     }
 
     [[nodiscard]] bool process_inline_statement(const std::size_t js_start_idx)
@@ -155,7 +159,7 @@ private:
 
         if (!js_end_idx.has_value())
         {
-            error_diagnostic_unterminated("$", "missing newline");
+            error_diagnostic_directive('$', "missing newline");
             return false;
         }
 
@@ -169,19 +173,19 @@ private:
 
         increment_curr_line(1);
 
-        _curr_idx = *js_end_idx + 1;
+        _curr_idx = *js_end_idx + 1 /* newline */;
         return true;
     }
 
     [[nodiscard]] bool process_inline_expression(
         std::string& output_buffer, const std::size_t js_start_idx)
     {
-        const std::optional<find_js_end_result> js_end_idx_result =
+        const std::optional<find_result> js_end_idx_result =
             find_js_end_idx(js_start_idx);
 
         if (!js_end_idx_result.has_value())
         {
-            error_diagnostic_unterminated("{", "missing closing brace");
+            error_diagnostic_directive('{', "missing closing brace");
             return false;
         }
 
@@ -191,33 +195,33 @@ private:
 
         if (js_end_idx == js_start_idx)
         {
-            error_diagnostic_unterminated("{", "empty directive");
+            error_diagnostic_directive('{', "empty directive");
             return false;
         }
 
         _tmp_buffer.clear();
-        _tmp_buffer.append("majsdown_set_output(");
+        _tmp_buffer.append("__mjsd(");
         copy_range_to_tmp_buffer(js_start_idx, js_end_idx);
         _tmp_buffer.append(");");
 
-        const std::string_view null_terminated_js = _tmp_buffer;
-        if (!_js_interpreter.interpret(output_buffer, null_terminated_js))
+        if (!_js_interpreter.interpret(
+                output_buffer, _tmp_buffer /* null-terminated JS */))
         {
             return false;
         }
 
-        _curr_idx = js_end_idx + 1;
+        _curr_idx = js_end_idx + 1 /* newline */;
         return true;
     }
 
     [[nodiscard]] bool process_block_statement(const std::size_t js_start_idx)
     {
-        const std::optional<find_js_end_result> js_end_idx_result =
-            find_js_end_idx_inline_discard(js_start_idx);
+        const std::optional<find_result> js_end_idx_result =
+            find_js_end_idx_block_statement(js_start_idx);
 
         if (!js_end_idx_result.has_value())
         {
-            error_diagnostic_unterminated("${", "missing closing brace");
+            error_diagnostic_directive("${", "missing closing brace");
             return false;
         }
 
@@ -227,7 +231,7 @@ private:
 
         if (js_end_idx == js_start_idx)
         {
-            error_diagnostic_unterminated("${", "empty directive");
+            error_diagnostic_directive("${", "empty directive");
             return false;
         }
 
@@ -244,14 +248,14 @@ private:
     [[nodiscard]] bool process_code_block_decorator(
         std::string& output_buffer, const std::size_t js_start_idx)
     {
-        const std::size_t real_js_start_idx = js_start_idx + 1;
+        const std::size_t real_js_start_idx = js_start_idx + 1 /* { */;
 
-        const std::optional<find_js_end_result> js_end_idx_result =
+        const std::optional<find_result> js_end_idx_result =
             find_js_end_idx(real_js_start_idx);
 
         if (!js_end_idx_result.has_value())
         {
-            error_diagnostic_unterminated("_", "missing closing brace");
+            error_diagnostic_directive('_', "missing closing brace");
             return false;
         }
 
@@ -259,24 +263,21 @@ private:
         const auto& [js_end_idx, n_newlines] = *js_end_idx_result;
         increment_curr_line(n_newlines);
 
-        _curr_idx = js_end_idx + 2;
+        if (_source[js_end_idx + 1] != '_')
+        {
+            error_diagnostic_directive('_', "missing closing underscore");
+            return false;
+        }
+
+        _curr_idx = js_end_idx + 2 /* }_ */ + 1 /* newline */;
 
         const std::size_t n_backticks = [&]
         {
             std::size_t result = 0;
 
-            while (true)
+            while (peek(result) == '`')
             {
-                const std::optional<char> backtick_peek = peek(result);
-
-                if (backtick_peek.has_value() && *backtick_peek == '`')
-                {
-                    ++result;
-                }
-                else
-                {
-                    break;
-                }
+                ++result;
             }
 
             return result;
@@ -284,7 +285,7 @@ private:
 
         if (n_backticks == 0)
         {
-            error_diagnostic_unterminated("_", "expected ``` code block");
+            error_diagnostic_directive('_', "expected ``` code block");
             return false;
         }
 
@@ -308,7 +309,7 @@ private:
 
         if (!lang_end_idx.has_value())
         {
-            error_diagnostic_unterminated("_", "malformed ``` code block");
+            error_diagnostic_directive('_', "malformed ``` code block");
             return false;
         }
 
@@ -349,7 +350,7 @@ private:
 
         if (!code_end_idx.has_value())
         {
-            error_diagnostic_unterminated("_", "open ``` code block");
+            error_diagnostic_directive('_', "open ``` code block");
             return false;
         }
 
@@ -361,6 +362,7 @@ private:
         _tmp_buffer.clear();
         _tmp_buffer.append("(() => { const code = (String.raw`");
 
+        // First, we must escape backticks to embed in a JS template literal
         for (const char c : extracted_code)
         {
             if (c != '`')
@@ -372,9 +374,10 @@ private:
             _tmp_buffer.append("\\`");
         }
 
+        // Then we unescape them after the `raw` call to avoid emitting slashes
         _tmp_buffer.append("`).replace(/\\\\`/g, '`');; const lang = `");
         _tmp_buffer.append(extracted_lang);
-        _tmp_buffer.append("`; return majsdown_set_output(");
+        _tmp_buffer.append("`; return __mjsd(");
         copy_range_to_tmp_buffer(real_js_start_idx, js_end_idx);
         _tmp_buffer.append("); })()");
 
@@ -411,6 +414,126 @@ private:
         _js_interpreter.set_current_diagnostics_line(_curr_line);
     }
 
+    [[nodiscard]] bool convert_step(std::string& output_buffer)
+    {
+        const char c = get_curr_char();
+
+        //
+        // Consume JS statement buffer if possible
+        // ----------------------------------------------------------------
+        {
+            const std::optional<char> next1 = peek(1);
+            const std::optional<char> next2 = peek(2);
+
+            const bool next_is_stmt =
+                c == '@' && *next1 == '@' && *next2 == '$';
+
+            if (!next_is_stmt && !_js_buffer.empty())
+            {
+                if (!_js_interpreter.interpret_discard(_js_buffer))
+                {
+                    return false;
+                }
+
+                _js_buffer.clear();
+            }
+        }
+
+        //
+        // Process normal (non-special) characters
+        // ----------------------------------------------------------------
+        if (c != '@')
+        {
+            process_normal_character(output_buffer, c);
+            return true;
+        }
+
+        assert(c == '@');
+
+        if (const std::optional<char> next1 = peek(1);
+            !next1.has_value() || *next1 != '@')
+        {
+            process_normal_character(output_buffer, c);
+            return true;
+        }
+
+        const std::optional<char> next2 = peek(2);
+        if (!next2.has_value() || !is_special_character(*next2))
+        {
+            process_normal_character(output_buffer, c);
+            return true;
+        }
+
+        assert(is_special_character(*next2));
+
+        const std::size_t js_start_idx = _curr_idx + 3;
+        if (js_start_idx >= _source.size())
+        {
+            error_diagnostic_directive(*next2, "reached end of source");
+            return false;
+        }
+
+        assert(js_start_idx < _source.size());
+
+        //
+        // Process `@@$` and `@@${`
+        // ----------------------------------------------------------------
+        if (*next2 == '$')
+        {
+            if (const std::optional<char> next3 = peek(3); *next3 == '{')
+            {
+                if (!process_block_statement(js_start_idx + 1))
+                {
+                    return false;
+                }
+            }
+            else if (!process_inline_statement(js_start_idx))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        //
+        // Process `@@{`
+        // ----------------------------------------------------------------
+        if (*next2 == '{')
+        {
+            if (!process_inline_expression(output_buffer, js_start_idx))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        //
+        // Process `@@_`
+        // ----------------------------------------------------------------
+        if (*next2 == '_')
+        {
+            const std::optional<char> next3 = peek(3);
+            if (!next3.has_value() || *next3 != '{')
+            {
+                error_diagnostic_directive('_', "missing '{'");
+                return false;
+            }
+
+            if (!process_code_block_decorator(output_buffer, js_start_idx))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        std::cerr << "((MJSD ERROR))(" << _curr_line
+                  << "): Fatal conversion error\n\n";
+
+        return false;
+    }
+
 public:
     [[nodiscard]] explicit converter_impl(const std::string_view source)
         : _source{source}, _curr_idx{0}, _curr_line{0}
@@ -425,114 +548,10 @@ public:
     {
         while (!is_done())
         {
-            const char c = get_curr_char();
-
+            if (!convert_step(output_buffer))
             {
-                const std::optional<char> next1 = peek(1);
-                const std::optional<char> next2 = peek(2);
-
-                const bool next_is_stmt =
-                    c == '@' && (next1.has_value() && *next1 == '@') &&
-                    (next2.has_value() && *next2 == '$');
-
-                if (!next_is_stmt && !_js_buffer.empty())
-                {
-                    if (!_js_interpreter.interpret_discard(_js_buffer))
-                    {
-                        return false;
-                    }
-
-                    _js_buffer.clear();
-                }
-            }
-
-            if (c != '@')
-            {
-                process_normal_character(output_buffer, c);
-                continue;
-            }
-
-            assert(c == '@');
-
-            if (const std::optional<char> next1 = peek(1);
-                !next1.has_value() || *next1 != '@')
-            {
-                process_normal_character(output_buffer, c);
-                continue;
-            }
-
-            const std::optional<char> next2 = peek(2);
-            if (!next2.has_value() || !is_special_character(*next2))
-            {
-                process_normal_character(output_buffer, c);
-                continue;
-            }
-
-            assert(is_special_character(*next2));
-
-            const std::size_t js_start_idx = _curr_idx + 3;
-            if (js_start_idx >= _source.size())
-            {
-                error_diagnostic_unterminated(
-                    std::string{*next2}, "reached end of source");
-
                 return false;
             }
-
-            assert(js_start_idx < _source.size());
-
-            //
-            // Process `@@$` and `@@${`
-            // ----------------------------------------------------------------
-            if (*next2 == '$')
-            {
-                const std::optional<char> next3 = peek(3);
-
-                if (next3.has_value() && *next3 == '{')
-                {
-                    if (!process_block_statement(js_start_idx + 1))
-                    {
-                        return false;
-                    }
-                }
-                else if (!process_inline_statement(js_start_idx))
-                {
-                    return false;
-                }
-
-                continue;
-            }
-
-            //
-            // Process `@@{`
-            // ----------------------------------------------------------------
-            if (*next2 == '{')
-            {
-                if (!process_inline_expression(output_buffer, js_start_idx))
-                {
-                    return false;
-                }
-
-                continue;
-            }
-
-            //
-            // Process `@@_`
-            // ----------------------------------------------------------------
-            if (*next2 == '_')
-            {
-                if (!process_code_block_decorator(output_buffer, js_start_idx))
-                {
-                    return false;
-                }
-
-                continue;
-            }
-
-            std::cerr << "((MJSD ERROR))(" << _curr_line
-                      << "): Fatal conversion error\n\n";
-
-            return false;
         }
 
         return true;

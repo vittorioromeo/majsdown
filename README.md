@@ -111,7 +111,7 @@ This presentation contains 25 slides.
 
 ### JavaScript Code Block Decorator
 
-The `@@_{<expression>}` denotes a JavaScript code block decorator that will execute the given `<expression>` making providing the following variables in its scope:
+The `@@_{<expression>}_` denotes a JavaScript code block decorator that will execute the given `<expression>` making providing the following variables in its scope:
 
 - `code`: string representing the contents of the code block.
 
@@ -142,7 +142,7 @@ function replaceStdNamespace(ns, code, lang)
 
 $}
 
-@@_{replaceStdNamespace("bsl", code, lang)}
+@@_{replaceStdNamespace("bsl", code, lang)}_
 ```cpp
 std::string greeting = "hello world";
 std::cout << greeting << std::endl;

@@ -200,7 +200,7 @@ TEST_CASE("converter convert #10")
 TEST_CASE("converter convert #11")
 {
     const std::string_view source = R"(
-@@_{code}
+@@_{code}_
 ```cpp
 int main() { }
 ```
@@ -216,7 +216,7 @@ int main() { }
 TEST_CASE("converter convert #12")
 {
     const std::string_view source = R"(
-@@_{lang}
+@@_{lang}_
 ```cpp
 int main() { }
 ```
@@ -232,7 +232,7 @@ cpp
 TEST_CASE("converter convert #13")
 {
     const std::string_view source = R"(
-@@_{lang}
+@@_{lang}_
 ```
 int main() { }
 ```
@@ -264,7 +264,7 @@ TEST_CASE("converter convert #14")
 TEST_CASE("converter convert #15")
 {
     const std::string_view source = R"(
-@@_{code}
+@@_{code}_
 ```cpp
 int main() { std::cout << "hello\n"; }
 ```
@@ -397,7 +397,7 @@ TEST_CASE("converter convert #23")
 
 ## Code Block Functions
 
-@@_{replaceStdNamespace(namespace, code, lang)}
+@@_{replaceStdNamespace(namespace, code, lang)}_
 ```cpp
 std::string greeting = "hello world";
 std::cout << greeting << std::endl;
@@ -455,7 +455,7 @@ TEST_CASE("converter convert #25")
 TEST_CASE("converter convert #26")
 {
     const std::string_view source = R"(
-@@_{code}
+@@_{code}_
 `````cpp
 int main() { }
 `````
@@ -471,7 +471,7 @@ int main() { }
 TEST_CASE("converter convert #27")
 {
     const std::string_view source = R"(
-@@_{lang}
+@@_{lang}_
 `````cpp
 int main() { }
 `````
@@ -487,7 +487,7 @@ cpp
 TEST_CASE("converter convert #28")
 {
     const std::string_view source = R"(
-@@_{lang}
+@@_{lang}_
 `````
 int main() { }
 `````
@@ -519,7 +519,7 @@ TEST_CASE("converter convert #29")
 
 ## Code Block Functions
 
-@@_{replaceStdNamespace(namespace, code, lang)}
+@@_{replaceStdNamespace(namespace, code, lang)}_
 `````cpp
 std::string greeting = "hello world";
 std::cout << greeting << std::endl;
@@ -542,7 +542,7 @@ bsl::cout << greeting << bsl::endl;
 TEST_CASE("converter convert #30")
 {
     const std::string_view source = R"(
-@@_{lang}
+@@_{lang}_
 `````markdown
 ```cpp
 int main() { }
@@ -560,7 +560,7 @@ markdown
 TEST_CASE("converter convert #31")
 {
     const std::string_view source = R"(
-@@_{code}
+@@_{code}_
 `````markdown
 ```cpp
 int main() { }

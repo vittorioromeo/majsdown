@@ -41,7 +41,7 @@ function highlightCpp(lineRange, code)
 
 }$
 
-@@_{highlightCpp("", code)}
+@@_{highlightCpp("", code)}_
 ```cpp
 template <class _InputIterator, class _Tp>
 _Tp
@@ -61,7 +61,7 @@ accumulate(_InputIterator __first,
 
 ---
 
-@@_{highlightCpp("8-12", code)}
+@@_{highlightCpp("8-12", code)}_
 ```cpp
 template <class _InputIterator, class _Tp>
 _Tp

@@ -15,7 +15,7 @@ TEST_CASE("js_interpreter interpret #0")
 
     std::string output_buffer;
     const bool ok = ji.interpret(output_buffer, R"(
-majsdown_set_output('hello world!');
+__mjsd('hello world!');
 )");
 
     REQUIRE(ok);
@@ -32,7 +32,7 @@ var i = 10;
 var j = 15;
 var res = (function(){ return i + j; })();
 
-majsdown_set_output(res);
+__mjsd(res);
 )");
 
     REQUIRE(ok);

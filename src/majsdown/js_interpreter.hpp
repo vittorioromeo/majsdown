@@ -10,7 +10,6 @@ class js_interpreter
 {
 private:
     struct impl;
-
     std::unique_ptr<impl> _impl;
 
 public:

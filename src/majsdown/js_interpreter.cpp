@@ -33,7 +33,6 @@ template <auto FPtr>
 struct tl_guard
 {
     using type = std::remove_reference_t<decltype(FPtr())>;
-
     const type _prev;
 
     explicit tl_guard(const type& obj) : _prev{std::exchange(FPtr(), obj)}
@@ -64,7 +63,7 @@ static void output_to_tl_buffer_pointee(JSContext* context, JSValueConst* argv)
     buffer_ptr->append(string_arg);
 }
 
-[[nodiscard]] static std::ostream& error_diagnostic(
+[[nodiscard]] static std::ostream& error_diagnostic_stream(
     const char* type, const std::size_t line)
 {
     return std::cerr << "((" << type << " ERROR))(" << line << "): ";
@@ -151,9 +150,10 @@ private:
     JSContext* _context;
     std::size_t _curr_diagnostics_line;
 
-    [[nodiscard]] std::ostream& error_diagnostic(const char* type)
+    [[nodiscard]] std::ostream& error_diagnostic_stream(const char* type)
     {
-        return ::majsdown::error_diagnostic(type, _curr_diagnostics_line);
+        return ::majsdown::error_diagnostic_stream(
+            type, _curr_diagnostics_line);
     }
 
     template <auto FPtr>
@@ -188,7 +188,7 @@ private:
     {
         if (JS_IsException(js_value) || JS_IsError(_context, js_value))
         {
-            error_diagnostic("JS")
+            error_diagnostic_stream("JS")
                 << JS_ToCString(_context, JS_GetException(_context)) << "\n\n";
 
             return false;
@@ -203,10 +203,7 @@ public:
           _context{JS_NewContext(_runtime)},
           _curr_diagnostics_line{0}
     {
-        // js_init_module_std(_context, "std");
-        // js_init_module_os(_context, "os");
-
-        bind_function<&output_to_tl_buffer_pointee>("majsdown_set_output", 1);
+        bind_function<&output_to_tl_buffer_pointee>("__mjsd", 1);
         bind_function<&include_file>("majsdown_include", 1);
         bind_function<&embed_file>("majsdown_embed", 1);
     }

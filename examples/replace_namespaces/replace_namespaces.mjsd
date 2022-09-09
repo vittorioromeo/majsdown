@@ -18,7 +18,7 @@ function replaceStdNamespace(ns, code, lang)
 
 ## Code Block Functions
 
-@@_{replaceStdNamespace(namespace, code, lang)}
+@@_{replaceStdNamespace(namespace, code, lang)}_
 ```cpp
 std::string greeting = "hello world";
 std::cout << greeting << std::endl;
