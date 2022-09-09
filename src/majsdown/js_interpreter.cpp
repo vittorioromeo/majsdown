@@ -184,17 +184,17 @@ private:
         JS_FreeValue(_context, global_obj);
     }
 
-    [[nodiscard]] JSValue check_js_errors(const JSValue& js_value)
+    [[nodiscard]] bool check_js_errors(const JSValue& js_value)
     {
         if (JS_IsException(js_value) || JS_IsError(_context, js_value))
         {
             error_diagnostic("JS")
                 << JS_ToCString(_context, JS_GetException(_context)) << "\n\n";
 
-            return JS_UNDEFINED;
+            return false;
         }
 
-        return js_value;
+        return true;
     }
 
 public:
@@ -219,14 +219,14 @@ public:
         JS_FreeRuntime(_runtime);
     }
 
-    JSValue interpret(
+    [[nodiscard]] bool interpret(
         std::string& output_buffer, const std::string_view source) noexcept
     {
         tl_guard<&get_tl_buffer_ptr> buffer_ptr_guard{&output_buffer};
         return check_js_errors(eval_impl(_context, source));
     }
 
-    JSValue interpret_discard(const std::string_view source) noexcept
+    [[nodiscard]] bool interpret_discard(const std::string_view source) noexcept
     {
         return check_js_errors(eval_impl(_context, source));
     }
@@ -244,15 +244,15 @@ js_interpreter::js_interpreter() : _impl{std::make_unique<impl>()}
 
 js_interpreter::~js_interpreter() = default;
 
-void js_interpreter::interpret(
+bool js_interpreter::interpret(
     std::string& output_buffer, const std::string_view source) noexcept
 {
-    _impl->interpret(output_buffer, source);
+    return _impl->interpret(output_buffer, source);
 }
 
-void js_interpreter::interpret_discard(const std::string_view source) noexcept
+bool js_interpreter::interpret_discard(const std::string_view source) noexcept
 {
-    _impl->interpret_discard(source);
+    return _impl->interpret_discard(source);
 }
 
 void js_interpreter::set_current_diagnostics_line(

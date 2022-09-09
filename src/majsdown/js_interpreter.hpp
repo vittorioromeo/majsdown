@@ -17,10 +17,11 @@ public:
     [[nodiscard]] explicit js_interpreter();
     ~js_interpreter();
 
-    void interpret(
+    [[nodiscard]] bool interpret(
         std::string& output_buffer, const std::string_view source) noexcept;
 
-    void interpret_discard(const std::string_view source) noexcept;
+    [[nodiscard]] bool interpret_discard(
+        const std::string_view source) noexcept;
 
     void set_current_diagnostics_line(const std::size_t line) noexcept;
 };
