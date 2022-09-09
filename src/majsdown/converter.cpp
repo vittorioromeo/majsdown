@@ -148,7 +148,7 @@ private:
                            << "' directive (" << reason << ")\n\n";
     }
 
-    [[nodiscard]] bool process_statement(const std::size_t js_start_idx)
+    [[nodiscard]] bool process_line_statement(const std::size_t js_start_idx)
     {
         const std::optional<std::size_t> js_end_idx =
             find_next('\n', js_start_idx);
@@ -210,7 +210,7 @@ private:
         return true;
     }
 
-    [[nodiscard]] bool process_inline_discard(const std::size_t js_start_idx)
+    [[nodiscard]] bool process_block_statement(const std::size_t js_start_idx)
     {
         const std::optional<find_js_end_result> js_end_idx_result =
             find_js_end_idx_inline_discard(js_start_idx);
@@ -490,12 +490,12 @@ public:
 
                 if (next3.has_value() && *next3 == '{')
                 {
-                    if (!process_inline_discard(js_start_idx + 1))
+                    if (!process_block_statement(js_start_idx + 1))
                     {
                         return false;
                     }
                 }
-                else if (!process_statement(js_start_idx))
+                else if (!process_line_statement(js_start_idx))
                 {
                     return false;
                 }
