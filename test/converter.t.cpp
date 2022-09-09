@@ -576,3 +576,85 @@ int main() { }
 
     do_test(source, expected);
 }
+
+TEST_CASE("converter convert #32")
+{
+    const std::string_view source = R"(
+@@${ var i = 10; }$
+@@{i + 5}
+)"sv;
+
+    const std::string_view expected = R"(
+15
+)"sv;
+
+    do_test(source, expected);
+}
+
+TEST_CASE("converter convert #33")
+{
+    const std::string_view source = R"(
+@@${
+var i = 10;
+}$
+@@{i + 5}
+)"sv;
+
+    const std::string_view expected = R"(
+15
+)"sv;
+
+    do_test(source, expected);
+}
+
+TEST_CASE("converter convert #33")
+{
+    const std::string_view source = R"(
+@@${
+var i = 10;
+i += 5;
+}$
+@@{i + 5}
+)"sv;
+
+    const std::string_view expected = R"(
+20
+)"sv;
+
+    do_test(source, expected);
+}
+
+TEST_CASE("converter convert #34")
+{
+    const std::string_view source = R"(
+@@${
+function p() { return 10; }
+}$
+@@{p() + 10}
+)"sv;
+
+    const std::string_view expected = R"(
+20
+)"sv;
+
+    do_test(source, expected);
+}
+
+TEST_CASE("converter convert #35")
+{
+    const std::string_view source = R"(
+@@${
+function p() { return 10; }
+}$
+@@${
+function g() { return 10; }
+}$
+@@{p() + g()}
+)"sv;
+
+    const std::string_view expected = R"(
+20
+)"sv;
+
+    do_test(source, expected);
+}
