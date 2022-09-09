@@ -451,3 +451,128 @@ TEST_CASE("converter convert #25")
 
     do_test(source, expected);
 }
+
+TEST_CASE("converter convert #26")
+{
+    const std::string_view source = R"(
+@@_{code}
+`````cpp
+int main() { }
+`````
+)"sv;
+
+    const std::string_view expected = R"(
+int main() { }
+)"sv;
+
+    do_test(source, expected);
+}
+
+TEST_CASE("converter convert #27")
+{
+    const std::string_view source = R"(
+@@_{lang}
+`````cpp
+int main() { }
+`````
+)"sv;
+
+    const std::string_view expected = R"(
+cpp
+)"sv;
+
+    do_test(source, expected);
+}
+
+TEST_CASE("converter convert #28")
+{
+    const std::string_view source = R"(
+@@_{lang}
+`````
+int main() { }
+`````
+)"sv;
+
+    const std::string_view expected = R"(
+
+)"sv;
+
+    do_test(source, expected);
+}
+
+TEST_CASE("converter convert #29")
+{
+    const std::string_view source = R"(
+@@$ function wrapInCodeBlock(code, lang)
+@@$ {
+@@$     return "```" + lang + "\n" + code + "\n```";
+@@$ }
+@@$
+@@$ function replaceStdNamespace(ns, code, lang)
+@@$ {
+@@$     return wrapInCodeBlock(
+@@$         code.replace(/std::/g, `${ns}::`), lang
+@@$     );
+@@$ }
+@@$
+@@$ const namespace = 'bsl';
+
+## Code Block Functions
+
+@@_{replaceStdNamespace(namespace, code, lang)}
+`````cpp
+std::string greeting = "hello world";
+std::cout << greeting << std::endl;
+`````
+)"sv;
+
+    const std::string_view expected = R"(
+
+## Code Block Functions
+
+```cpp
+bsl::string greeting = "hello world";
+bsl::cout << greeting << bsl::endl;
+```
+)"sv;
+
+    do_test(source, expected);
+}
+
+TEST_CASE("converter convert #30")
+{
+    const std::string_view source = R"(
+@@_{lang}
+`````markdown
+```cpp
+int main() { }
+```
+`````
+)"sv;
+
+    const std::string_view expected = R"(
+markdown
+)"sv;
+
+    do_test(source, expected);
+}
+
+TEST_CASE("converter convert #31")
+{
+    const std::string_view source = R"(
+@@_{code}
+`````markdown
+```cpp
+int main() { }
+```
+`````
+)"sv;
+
+    const std::string_view expected = R"(
+```cpp
+int main() { }
+```
+)"sv;
+
+    do_test(source, expected);
+}

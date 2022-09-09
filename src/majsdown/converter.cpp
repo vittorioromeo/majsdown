@@ -178,17 +178,34 @@ private:
 
         _curr_idx = *js_end_idx + 2;
 
-        const std::optional<char> backtick0 = peek(0);
-        const std::optional<char> backtick1 = peek(1);
-        const std::optional<char> backtick2 = peek(2);
+        const std::size_t n_backticks = [&]
+        {
+            std::size_t result = 0;
 
-        if (backtick0 != '`' || backtick1 != '`' || backtick2 != '`')
+            while (true)
+            {
+                const std::optional<char> backtick_peek = peek(result);
+
+                if (backtick_peek.has_value() && *backtick_peek == '`')
+                {
+                    ++result;
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            return result;
+        }();
+
+        if (n_backticks == 0)
         {
             error_diagnostic_unterminated('_', "expected ``` code block");
             return false;
         }
 
-        step_fwd(3);
+        step_fwd(n_backticks);
         assert(_curr_idx < _source.size());
 
         const std::size_t lang_start_idx = _curr_idx;
@@ -221,10 +238,24 @@ private:
 
         const auto code_end_idx = [&]() -> std::optional<std::size_t>
         {
-            for (std::size_t i = code_start_idx; i < _source.size() - 3; ++i)
+            for (std::size_t i = code_start_idx;
+                 i < _source.size() - n_backticks; ++i)
             {
-                if (_source[i] == '\n' && _source[i + 1] == '`' &&
-                    _source[i + 2] == '`' && _source[i + 3] == '`')
+                if (_source[i] != '\n')
+                {
+                    continue;
+                }
+
+                std::size_t found = 0;
+                for (std::size_t j = 0; j <= n_backticks; ++j)
+                {
+                    if (_source[i + j] == '`')
+                    {
+                        ++found;
+                    }
+                }
+
+                if (found == n_backticks)
                 {
                     return i;
                 }
@@ -245,9 +276,20 @@ private:
             _source.substr(code_start_idx, *code_end_idx - code_start_idx);
 
         _tmp_buffer.clear();
-        _tmp_buffer.append("(() => { const code = String.raw`");
-        _tmp_buffer.append(extracted_code);
-        _tmp_buffer.append("`; const lang = `");
+        _tmp_buffer.append("(() => { const code = (String.raw`");
+
+        for (const char c : extracted_code)
+        {
+            if (c != '`')
+            {
+                _tmp_buffer.append(1, c);
+                continue;
+            }
+
+            _tmp_buffer.append("\\`");
+        }
+
+        _tmp_buffer.append("`).replace(/\\\\`/g, '`');; const lang = `");
         _tmp_buffer.append(extracted_lang);
         _tmp_buffer.append("`; return majsdown_set_output(");
         copy_range_to_tmp_buffer(real_js_start_idx, *js_end_idx);
@@ -256,7 +298,7 @@ private:
         const std::string_view null_terminated_js = _tmp_buffer;
         _js_interpreter.interpret(output_buffer, null_terminated_js);
 
-        _curr_idx = *code_end_idx + 4;
+        _curr_idx = *code_end_idx + n_backticks + 1;
         return true;
     }
 
