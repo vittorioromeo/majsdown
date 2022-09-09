@@ -2,7 +2,6 @@
 
 > **The unholy union between Markdown and JavaScript.**
 
-
 <div align="center">
   <a href="https://www.youtube.com/watch?v=IbMKlyoo_eA"><img src="https://img.youtube.com/vi/IbMKlyoo_eA/0.jpg" alt="IMAGE ALT TEXT"></a>
   <a href="https://www.youtube.com/watch?v=IbMKlyoo_eA"><p>watch on Youtube</p></a>
@@ -10,7 +9,7 @@
 
 ## In A Nutshell
 
-Majsdown (work-in-progress, experimental) is yet another flavour of Markdown that allows JavaScript code to be embedded directly as part of a document. The JavaScript code is then executed by an interpreter that ends up creating a final Markdown document. Basically, it provides a way to preprocess Markdown documents using JavaScript.
+Majsdown *(work-in-progress, experimental)* is yet another flavour of Markdown that allows JavaScript code to be embedded directly as part of a document. The JavaScript code is then executed by an interpreter that ends up creating a final Markdown document. Basically, it provides a way to preprocess Markdown documents using JavaScript.
 
 <div align="center">
 
@@ -80,6 +79,36 @@ Actually, it contains 25 slides -- sorry!
 </tr>
 </table>
 
+### JavaScript Statement Blocks
+
+The `@@${ <code> }$` syntax denotes a JavaScript statement block that will be executed during conversion.
+
+<table>
+<tr>
+<td>
+
+```markdown
+@@${
+
+var slideCount = 24;
+slideCount += 1;
+
+}$
+
+This presentation contains @@{slideCount} slides.
+```
+
+</td>
+<td>
+
+```markdown
+This presentation contains 25 slides.
+```
+
+</td>
+</tr>
+</table>
+
 ### Code Block JavaScript Decorators
 
 The `@@_{<expression>}` denotes a code block JavaScript decorator that will execute the given `<expression>` making providing the following variables in its scope:
@@ -97,17 +126,21 @@ This syntax can only be used with a triple-backtick code block.
 <td>
 
 ``````markdown
-@@$ function wrapInCodeBlock(code, lang)
-@@$ {
-@@$     return "```" + lang + "\n" + code + "\n```";
-@@$ }
-@@$
-@@$ function replaceStdNamespace(ns, code, lang)
-@@$ {
-@@$     return wrapInCodeBlock(
-@@$         code.replace(/std::/g, `${ns}::`), lang
-@@$     );
-@@$ }
+@@${
+
+function wrapInCodeBlock(code, lang)
+{
+    return "```" + lang + "\n" + code + "\n```";
+}
+
+function replaceStdNamespace(ns, code, lang)
+{
+    return wrapInCodeBlock(
+        code.replace(/std::/g, `${ns}::`), lang
+    );
+}
+
+$}
 
 @@_{replaceStdNamespace("bsl", code, lang)}
 ```cpp
