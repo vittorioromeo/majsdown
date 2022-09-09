@@ -104,6 +104,13 @@ private:
         return std::cerr << "((MJSD ERROR))(" << _curr_line << "): ";
     }
 
+    void error_diagnostic_unterminated(
+        const char disambiguator, const std::string_view reason)
+    {
+        error_diagnostic() << "Unterminated '@@" << disambiguator
+                           << "' directive (" << reason << ")\n";
+    }
+
 public:
     [[nodiscard]] explicit converter_impl(const std::string_view source)
         : _source{source}, _curr_idx{0}, _curr_line{0}
@@ -166,9 +173,7 @@ public:
             const std::size_t js_start_idx = _curr_idx + 3;
             if (js_start_idx >= _source.size())
             {
-                error_diagnostic() << "Unterminated '@@" << *next2
-                                   << "' directive (reached end of source)\n\n";
-
+                error_diagnostic_unterminated(*next2, "reached end of source");
                 return false;
             }
 
@@ -184,9 +189,7 @@ public:
 
                 if (!js_end_idx.has_value())
                 {
-                    error_diagnostic() << "Unterminated '@@" << *next2
-                                       << "' directive (missing newline)\n\n";
-
+                    error_diagnostic_unterminated(*next2, "missing newline");
                     return false;
                 }
 
@@ -217,9 +220,8 @@ public:
 
                 if (!js_end_idx.has_value())
                 {
-                    error_diagnostic()
-                        << "Unterminated '@@" << *next2
-                        << "' directive (missing closing brace)\n";
+                    error_diagnostic_unterminated(
+                        *next2, "missing closing brace");
 
                     return false;
                 }
@@ -250,9 +252,8 @@ public:
 
                 if (!js_end_idx.has_value())
                 {
-                    error_diagnostic()
-                        << "Unterminated '@@" << *next2
-                        << "' directive (missing closing brace)\n";
+                    error_diagnostic_unterminated(
+                        *next2, "missing closing brace");
 
                     return false;
                 }
@@ -267,9 +268,8 @@ public:
 
                 if (backtick0 != '`' || backtick1 != '`' || backtick2 != '`')
                 {
-                    error_diagnostic()
-                        << "Unterminated '@@" << *next2
-                        << "' directive (expected ``` code block)\n";
+                    error_diagnostic_unterminated(
+                        *next2, "expected ``` code block");
 
                     return false;
                 }
@@ -295,9 +295,8 @@ public:
 
                 if (!lang_end_idx.has_value())
                 {
-                    error_diagnostic()
-                        << "Unterminated '@@" << *next2
-                        << "' directive (malformed ``` code block)\n";
+                    error_diagnostic_unterminated(
+                        *next2, "malformed ``` code block");
 
                     return false;
                 }
@@ -326,8 +325,8 @@ public:
 
                 if (!code_end_idx.has_value())
                 {
-                    error_diagnostic() << "Unterminated '@@" << *next2
-                                       << "' directive (open ``` code block)\n";
+                    error_diagnostic_unterminated(
+                        *next2, "open ``` code block");
 
                     return false;
                 }
