@@ -15,10 +15,14 @@ margin: 0
 }
 </style>
 
-@@$ function wePic(name)
-@@$ {
-@@$     return `<section data-background="${name}.png" data-background-size="contain"></section>`;
-@@$ }
+@@${
+
+function wePic(name)
+{
+    return `<section data-background="${name}.png" data-background-size="contain"></section>`;
+}
+
+}$
 
 ## WORDLEXPR
 

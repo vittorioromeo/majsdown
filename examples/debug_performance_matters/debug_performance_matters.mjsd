@@ -26,18 +26,24 @@ int accumulate_range(int* begin, int* end)
 
 ---
 
-@@$ function escapeCpp(code)
-@@$ {
-@@$     return code.replace(/\</g, `&lt;`);
-@@$ }
+@@${
 
-@@$ function highlightCpp(lineRange, code)
-@@$ {
-@@$     return '<pre><code data-line-numbers="' + lineRange + '">'
-@@$            + escapeCpp(code) + '</code></pre>';
-@@$ }
+function escapeCpp(code)
+{
+    return code.replace(/\</g, `&lt;`);
+}
 
-@@{highlightCpp("", `template <class _InputIterator, class _Tp>
+function highlightCpp(lineRange, code)
+{
+    return '<pre><code data-line-numbers="' + lineRange + '">'
+           + escapeCpp(code) + '</code></pre>';
+}
+
+}$
+
+@@_{highlightCpp("", code)}
+```cpp
+template <class _InputIterator, class _Tp>
 _Tp
 accumulate(_InputIterator __first,
            _InputIterator __last,
@@ -50,11 +56,14 @@ accumulate(_InputIterator __first,
         __init = __init + *__first;
 #endif
     return __init;
-}`)}
+}
+```
 
 ---
 
-@@{highlightCpp("8-12", `template <class _InputIterator, class _Tp>
+@@_{highlightCpp("8-12", code)}
+```cpp
+template <class _InputIterator, class _Tp>
 _Tp
 accumulate(_InputIterator __first,
            _InputIterator __last,
@@ -67,7 +76,8 @@ accumulate(_InputIterator __first,
         __init = __init + *__first;
 #endif
     return __init;
-}`)}
+}
+```
 
 ---
 
