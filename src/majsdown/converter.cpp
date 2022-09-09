@@ -148,7 +148,7 @@ private:
                            << "' directive (" << reason << ")\n\n";
     }
 
-    [[nodiscard]] bool process_line_statement(const std::size_t js_start_idx)
+    [[nodiscard]] bool process_inline_statement(const std::size_t js_start_idx)
     {
         const std::optional<std::size_t> js_end_idx =
             find_next('\n', js_start_idx);
@@ -173,7 +173,7 @@ private:
         return true;
     }
 
-    [[nodiscard]] bool process_inline(
+    [[nodiscard]] bool process_inline_expression(
         std::string& output_buffer, const std::size_t js_start_idx)
     {
         const std::optional<find_js_end_result> js_end_idx_result =
@@ -241,7 +241,7 @@ private:
         return true;
     }
 
-    [[nodiscard]] bool process_code_block(
+    [[nodiscard]] bool process_code_block_decorator(
         std::string& output_buffer, const std::size_t js_start_idx)
     {
         const std::size_t real_js_start_idx = js_start_idx + 1;
@@ -495,7 +495,7 @@ public:
                         return false;
                     }
                 }
-                else if (!process_line_statement(js_start_idx))
+                else if (!process_inline_statement(js_start_idx))
                 {
                     return false;
                 }
@@ -508,7 +508,7 @@ public:
             // ----------------------------------------------------------------
             if (*next2 == '{')
             {
-                if (!process_inline(output_buffer, js_start_idx))
+                if (!process_inline_expression(output_buffer, js_start_idx))
                 {
                     return false;
                 }
@@ -521,7 +521,7 @@ public:
             // ----------------------------------------------------------------
             if (*next2 == '_')
             {
-                if (!process_code_block(output_buffer, js_start_idx))
+                if (!process_code_block_decorator(output_buffer, js_start_idx))
                 {
                     return false;
                 }

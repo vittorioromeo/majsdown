@@ -25,9 +25,9 @@ Any existing Markdown (`.md`) document is a valid Majsdown (`.mjsd`) document. T
 
 ## Features
 
-### Inline JavaScript Expressions
+### JavaScript Inline Expression
 
-The `@@{<expression>}` syntax denotes an inline JavaScript expression that will be substitued in the final Markdown document with its evaluated result.
+The `@@{<expression>}` syntax denotes a JavaScript inline expression that will be substitued in the final Markdown document with its evaluated result.
 
 <table>
 <tr>
@@ -48,9 +48,9 @@ Hello world! I am 27 years old.
 </tr>
 </table>
 
-### Inline JavaScript Statements
+### JavaScript Inline Statement
 
-The `@@$ <statement>` syntax denotes an inline JavaScript statement that will be executed during conversion.
+The `@@$ <statement>` syntax denotes a JavaScript inline statement that will be executed during conversion.
 
 <table>
 <tr>
@@ -79,9 +79,9 @@ Actually, it contains 25 slides -- sorry!
 </tr>
 </table>
 
-### JavaScript Statement Blocks
+### JavaScript Block Statement
 
-The `@@${ <code> }$` syntax denotes a JavaScript statement block that will be executed during conversion.
+The `@@${ <code> }$` syntax denotes a JavaScript block statement that will be executed during conversion.
 
 <table>
 <tr>
@@ -109,9 +109,9 @@ This presentation contains 25 slides.
 </tr>
 </table>
 
-### Code Block JavaScript Decorators
+### JavaScript Code Block Decorator
 
-The `@@_{<expression>}` denotes a code block JavaScript decorator that will execute the given `<expression>` making providing the following variables in its scope:
+The `@@_{<expression>}` denotes a JavaScript code block decorator that will execute the given `<expression>` making providing the following variables in its scope:
 
 - `code`: string representing the contents of the code block.
 
