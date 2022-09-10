@@ -437,8 +437,10 @@ TEST_CASE("converter convert #24")
 TEST_CASE("converter convert #25")
 {
     make_tmp_file("./i.js", "var i = (() => 10)();");
-    make_tmp_file("./j.js", "majsdown_include(\"./i.js\"); majsdown_include(\"./i.js\");");
-    make_tmp_file("./k.js", "majsdown_include(\"./j.js\"); majsdown_include(\"./j.js\");");
+    make_tmp_file("./j.js",
+        "majsdown_include(\"./i.js\"); majsdown_include(\"./i.js\");");
+    make_tmp_file("./k.js",
+        "majsdown_include(\"./j.js\"); majsdown_include(\"./j.js\");");
 
     const std::string_view source = R"(
 @@$ majsdown_include("./j.js");
@@ -825,6 +827,41 @@ The result is @@{10 + 5}.
 ```
 
 The `@@{expr}` sequence is an expression.
+)"sv;
+
+    do_test(source, expected);
+}
+
+TEST_CASE("converter convert #48")
+{
+    const std::string_view source = R"(
+``````markdown
+\@@_{godboltify(code)}_
+```cpp
+#include <iostream>
+
+int main()
+{
+    std::cout << "I should be using <format>...\n";
+    return 0;
+}
+```
+``````
+)"sv;
+
+    const std::string_view expected = R"(
+``````markdown
+@@_{godboltify(code)}_
+```cpp
+#include <iostream>
+
+int main()
+{
+    std::cout << "I should be using <format>...\n";
+    return 0;
+}
+```
+``````
 )"sv;
 
     do_test(source, expected);
