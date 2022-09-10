@@ -440,6 +440,25 @@ private:
         }
 
         //
+        // Process escaped '@'
+        // ----------------------------------------------------------------
+        if (c == '\\')
+        {
+            if (const std::optional<char> next1 = peek(1);
+                next1 == '@')
+            {
+                process_normal_character(output_buffer, '@');
+                step_fwd(1);
+            }
+            else
+            {
+                process_normal_character(output_buffer, c);
+            }
+
+            return true;
+        }
+
+        //
         // Process normal (non-special) characters
         // ----------------------------------------------------------------
         if (c != '@')

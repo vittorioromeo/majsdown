@@ -658,3 +658,174 @@ function g() { return 10; }
 
     do_test(source, expected);
 }
+
+TEST_CASE("converter convert #36")
+{
+    const std::string_view source = R"(
+@
+)"sv;
+
+    const std::string_view expected = R"(
+@
+)"sv;
+
+    do_test(source, expected);
+}
+
+TEST_CASE("converter convert #37")
+{
+    const std::string_view source = R"(
+@@
+)"sv;
+
+    const std::string_view expected = R"(
+@@
+)"sv;
+
+    do_test(source, expected);
+}
+
+TEST_CASE("converter convert #38")
+{
+    const std::string_view source = R"(
+@@$
+)"sv;
+
+    const std::string_view expected = R"(
+)"sv;
+
+    do_test(source, expected);
+}
+
+TEST_CASE("converter convert #39")
+{
+    const std::string_view source = R"(
+\@@$
+)"sv;
+
+    const std::string_view expected = R"(
+@@$
+)"sv;
+
+    do_test(source, expected);
+}
+
+TEST_CASE("converter convert #40")
+{
+    const std::string_view source = R"(
+@\@$
+)"sv;
+
+    const std::string_view expected = R"(
+@@$
+)"sv;
+
+    do_test(source, expected);
+}
+
+TEST_CASE("converter convert #41")
+{
+    const std::string_view source = R"(
+@\@
+)"sv;
+
+    const std::string_view expected = R"(
+@@
+)"sv;
+
+    do_test(source, expected);
+}
+
+TEST_CASE("converter convert #42")
+{
+    const std::string_view source = R"(
+\@
+)"sv;
+
+    const std::string_view expected = R"(
+@
+)"sv;
+
+    do_test(source, expected);
+}
+
+TEST_CASE("converter convert #43")
+{
+    const std::string_view source = R"(
+\
+)"sv;
+
+    const std::string_view expected = R"(
+\
+)"sv;
+
+    do_test(source, expected);
+}
+
+TEST_CASE("converter convert #44")
+{
+    const std::string_view source = R"(
+\\
+)"sv;
+
+    const std::string_view expected = R"(
+\\
+)"sv;
+
+    do_test(source, expected);
+}
+
+TEST_CASE("converter convert #45")
+{
+    const std::string_view source = R"(
+\x
+)"sv;
+
+    const std::string_view expected = R"(
+\x
+)"sv;
+
+    do_test(source, expected);
+}
+
+TEST_CASE("converter convert #46")
+{
+    const std::string_view source = R"(
+```markdown
+\@@$ function test() { }
+```
+
+The `\@@$` sequence is a statement.
+)"sv;
+
+    const std::string_view expected = R"(
+```markdown
+@@$ function test() { }
+```
+
+The `@@$` sequence is a statement.
+)"sv;
+
+    do_test(source, expected);
+}
+
+TEST_CASE("converter convert #47")
+{
+    const std::string_view source = R"(
+```markdown
+The result is \@@{10 + 5}.
+```
+
+The `\@@{expr}` sequence is an expression.
+)"sv;
+
+    const std::string_view expected = R"(
+```markdown
+The result is @@{10 + 5}.
+```
+
+The `@@{expr}` sequence is an expression.
+)"sv;
+
+    do_test(source, expected);
+}
