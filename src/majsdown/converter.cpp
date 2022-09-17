@@ -28,7 +28,7 @@ public:
     }
 };
 
-class converter_impl
+class converter_pass
 {
 private:
     converter_state& _state;
@@ -453,11 +453,8 @@ private:
         // Consume JS statement buffer if possible
         // ----------------------------------------------------------------
         {
-            const std::optional<char> next1 = peek(1);
-            const std::optional<char> next2 = peek(2);
-
             const bool next_is_stmt =
-                c == '@' && *next1 == '@' && *next2 == '$';
+                c == '@' && peek(1) == '@' && peek(2) == '$';
 
             if (!next_is_stmt && !get_js_buffer().empty())
             {
@@ -475,13 +472,12 @@ private:
         // ----------------------------------------------------------------
         if (c == '\\')
         {
-            if (const std::optional<char> next1 = peek(1); next1 == '@')
+            if (peek(1) == '@')
             {
                 if (_cfg.skip_escaped_symbols)
                 {
                     process_normal_character(output_buffer, c);
                     process_normal_character(output_buffer, '@');
-
                     return true;
                 }
 
@@ -499,16 +495,7 @@ private:
         //
         // Process normal (non-special) characters
         // ----------------------------------------------------------------
-        if (c != '@')
-        {
-            process_normal_character(output_buffer, c);
-            return true;
-        }
-
-        assert(c == '@');
-
-        if (const std::optional<char> next1 = peek(1);
-            !next1.has_value() || *next1 != '@')
+        if (c != '@' || peek(1) != '@')
         {
             process_normal_character(output_buffer, c);
             return true;
@@ -521,7 +508,7 @@ private:
             return true;
         }
 
-        assert(is_special_character(*next2));
+        assert(next2.has_value() && is_special_character(*next2));
 
         const std::size_t js_start_idx = _curr_idx + 3;
         if (js_start_idx >= _source.size())
@@ -537,7 +524,7 @@ private:
         // ----------------------------------------------------------------
         if (*next2 == '$')
         {
-            if (const std::optional<char> next3 = peek(3); *next3 == '{')
+            if (peek(3) == '{')
             {
                 if (_cfg.skip_block_statements)
                 {
@@ -545,10 +532,7 @@ private:
                     return true;
                 }
 
-                if (!process_block_statement(js_start_idx + 1))
-                {
-                    return false;
-                }
+                return process_block_statement(js_start_idx + 1);
             }
             else
             {
@@ -558,13 +542,8 @@ private:
                     return true;
                 }
 
-                if (!process_inline_statement(js_start_idx))
-                {
-                    return false;
-                }
+                return process_inline_statement(js_start_idx);
             }
-
-            return true;
         }
 
         //
@@ -578,12 +557,7 @@ private:
                 return true;
             }
 
-            if (!process_inline_expression(output_buffer, js_start_idx))
-            {
-                return false;
-            }
-
-            return true;
+            return process_inline_expression(output_buffer, js_start_idx);
         }
 
         //
@@ -619,14 +593,14 @@ private:
     }
 
 public:
-    [[nodiscard]] explicit converter_impl(converter_state& state,
+    [[nodiscard]] explicit converter_pass(converter_state& state,
         const converter::config& cfg, const std::string_view source)
         : _state{state}, _cfg{cfg}, _source{source}, _curr_idx{0}, _curr_line{0}
     {
         get_js_interpreter().set_current_diagnostics_line(_curr_line);
     }
 
-    ~converter_impl() = default;
+    ~converter_pass() = default;
 
     [[nodiscard]] bool convert(std::string& output_buffer) noexcept
     {
@@ -651,7 +625,7 @@ bool converter::convert(const config& cfg, std::string& output_buffer,
     const std::string_view source) noexcept
 {
     _state->clear_buffers();
-    return converter_impl{*_state, cfg, source}.convert(output_buffer);
+    return converter_pass{*_state, cfg, source}.convert(output_buffer);
 }
 
 } // namespace majsdown
