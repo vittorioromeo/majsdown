@@ -3,22 +3,70 @@
 
 #include <majsdown/converter.hpp>
 
+#include <array>
 #include <fstream>
 #include <string_view>
+
+#include <cassert>
 
 using namespace std::string_view_literals;
 
 namespace {
 
-void do_test(const std::string_view source, const std::string_view expected)
+[[nodiscard]] std::string& get_thread_local_buf(const std::size_t i)
 {
-    std::string output_buffer;
-    const bool ok = majsdown::converter{}.convert(output_buffer, source);
+    assert(i < 2);
+
+    thread_local auto result = []
+    {
+        std::array<std::string, 2> bufs;
+
+        for (std::string& buf : bufs)
+        {
+            buf.reserve(512);
+        }
+
+        return bufs;
+    }();
+
+    return result[i];
+}
+
+std::string& do_test_impl(majsdown::converter& cnvtr, const std::size_t buf_idx,
+    const std::string_view source, const std::string_view expected,
+    const majsdown::converter::config& cfg)
+{
+    std::string& output_buffer = get_thread_local_buf(buf_idx);
+    output_buffer.clear();
+
+    const bool ok = cnvtr.convert(cfg, output_buffer, source);
 
     REQUIRE(ok);
     REQUIRE(output_buffer == expected);
+
+    return output_buffer;
 }
 
+void do_test_one_pass(const std::string_view source,
+    const std::string_view expected,
+    const majsdown::converter::config& cfg = {})
+{
+    majsdown::converter cnvtr;
+    do_test_impl(cnvtr, 0, source, expected, cfg);
+}
+
+void do_test_two_pass(const std::string_view source,
+    const std::string_view expected_fst, const std::string_view expected_snd,
+    const majsdown::converter::config& cfg_fst,
+    const majsdown::converter::config& cfg_snd = {})
+{
+    majsdown::converter cnvtr;
+
+    const std::string& out_fst =
+        do_test_impl(cnvtr, 0, source, expected_fst, cfg_fst);
+
+    do_test_impl(cnvtr, 1, out_fst, expected_snd, cfg_snd);
+}
 
 void make_tmp_file(const std::string_view path, const std::string_view contents)
 {
@@ -50,7 +98,7 @@ some markdown here... test@mail.com
 *italic*
 )"sv;
 
-    do_test(source, source);
+    do_test_one_pass(source, source);
 }
 
 TEST_CASE("converter convert #1")
@@ -63,7 +111,7 @@ TEST_CASE("converter convert #1")
 hello world
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #2")
@@ -76,7 +124,7 @@ TEST_CASE("converter convert #2")
 15
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #3")
@@ -90,7 +138,7 @@ TEST_CASE("converter convert #3")
 15
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #4")
@@ -110,7 +158,7 @@ world
 !
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #5")
@@ -123,7 +171,7 @@ hello @@{1 + 5} world
 hello 6 world
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #6")
@@ -136,7 +184,7 @@ hello @@{"world"}
 hello world
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #7")
@@ -152,7 +200,7 @@ TEST_CASE("converter convert #7")
 15
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #8")
@@ -168,7 +216,7 @@ TEST_CASE("converter convert #8")
 15
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #9")
@@ -181,7 +229,7 @@ hello @@{ (function() { return "world"; })() }
 hello world
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #10")
@@ -194,7 +242,7 @@ TEST_CASE("converter convert #10")
   TESTOK
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #11")
@@ -210,7 +258,7 @@ int main() { }
 int main() { }
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #12")
@@ -226,7 +274,7 @@ int main() { }
 cpp
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #13")
@@ -242,7 +290,7 @@ int main() { }
 
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #14")
@@ -258,7 +306,7 @@ TEST_CASE("converter convert #14")
 10
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #15")
@@ -274,7 +322,7 @@ int main() { std::cout << "hello\n"; }
 int main() { std::cout << "hello\n"; }
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #16")
@@ -290,7 +338,7 @@ TEST_CASE("converter convert #16")
 ABC1234
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #17")
@@ -306,7 +354,7 @@ TEST_CASE("converter convert #17")
 ABC1234\n
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #18")
@@ -322,7 +370,7 @@ TEST_CASE("converter convert #18")
 36
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #19")
@@ -336,7 +384,7 @@ TEST_CASE("converter convert #19")
 10
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #20")
@@ -348,7 +396,7 @@ TEST_CASE("converter convert #20")
     const std::string_view expected = R"(
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #21")
@@ -360,7 +408,7 @@ TEST_CASE("converter convert #21")
     const std::string_view expected = R"(
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #22")
@@ -375,7 +423,7 @@ TEST_CASE("converter convert #22")
 22
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #23")
@@ -414,7 +462,7 @@ bsl::cout << greeting << bsl::endl;
 ```
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #24")
@@ -431,7 +479,7 @@ TEST_CASE("converter convert #24")
 15
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #25")
@@ -451,7 +499,7 @@ TEST_CASE("converter convert #25")
 15
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #26")
@@ -467,7 +515,7 @@ int main() { }
 int main() { }
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #27")
@@ -483,7 +531,7 @@ int main() { }
 cpp
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #28")
@@ -499,7 +547,7 @@ int main() { }
 
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #29")
@@ -538,7 +586,7 @@ bsl::cout << greeting << bsl::endl;
 ```
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #30")
@@ -556,7 +604,7 @@ int main() { }
 markdown
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #31")
@@ -576,7 +624,7 @@ int main() { }
 ```
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #32")
@@ -590,7 +638,7 @@ TEST_CASE("converter convert #32")
 15
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #33")
@@ -606,7 +654,7 @@ var i = 10;
 15
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #33")
@@ -623,7 +671,7 @@ i += 5;
 20
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #34")
@@ -639,7 +687,7 @@ function p() { return 10; }
 20
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #35")
@@ -658,7 +706,7 @@ function g() { return 10; }
 20
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #36")
@@ -671,7 +719,7 @@ TEST_CASE("converter convert #36")
 @
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #37")
@@ -684,7 +732,7 @@ TEST_CASE("converter convert #37")
 @@
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #38")
@@ -696,7 +744,7 @@ TEST_CASE("converter convert #38")
     const std::string_view expected = R"(
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #39")
@@ -709,7 +757,7 @@ TEST_CASE("converter convert #39")
 @@$
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #40")
@@ -722,7 +770,7 @@ TEST_CASE("converter convert #40")
 @@$
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #41")
@@ -735,7 +783,7 @@ TEST_CASE("converter convert #41")
 @@
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #42")
@@ -748,7 +796,7 @@ TEST_CASE("converter convert #42")
 @
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #43")
@@ -761,7 +809,7 @@ TEST_CASE("converter convert #43")
 \
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #44")
@@ -774,7 +822,7 @@ TEST_CASE("converter convert #44")
 \\
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #45")
@@ -787,7 +835,7 @@ TEST_CASE("converter convert #45")
 \x
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #46")
@@ -808,7 +856,7 @@ The `\@@$` sequence is a statement.
 The `@@$` sequence is a statement.
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #47")
@@ -829,7 +877,7 @@ The result is @@{10 + 5}.
 The `@@{expr}` sequence is an expression.
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
 }
 
 TEST_CASE("converter convert #48")
@@ -864,5 +912,380 @@ int main()
 ``````
 )"sv;
 
-    do_test(source, expected);
+    do_test_one_pass(source, expected);
+}
+
+TEST_CASE("converter convert #49")
+{
+    const std::string_view source = R"(
+@@_{code}_
+```cpp
+int @@{"main"}() { }
+```
+)"sv;
+
+    const std::string_view expected = R"(
+int @@{"main"}() { }
+)"sv;
+
+    do_test_one_pass(source, expected);
+}
+
+TEST_CASE("converter convert #50")
+{
+    const std::string_view source = R"(
+@@{"sup"}
+)"sv;
+
+    const majsdown::converter::config cfg_fst{
+        .skip_escaped_symbols = false,
+        .skip_inline_expressions = true,
+        .skip_inline_statements = false,
+        .skip_block_statements = false,
+        .skip_code_block_decorators = false //
+    };
+
+    const std::string_view expected_fst = R"(
+@@{"sup"}
+)"sv;
+
+    const std::string_view expected_snd = R"(
+sup
+)"sv;
+
+    do_test_two_pass(source, expected_fst, expected_snd, cfg_fst, {});
+}
+
+TEST_CASE("converter convert #51")
+{
+    const std::string_view source = R"(
+@@_{code}_
+```cpp
+foo
+```
+)"sv;
+
+    const majsdown::converter::config cfg_fst{
+        .skip_escaped_symbols = false,
+        .skip_inline_expressions = false,
+        .skip_inline_statements = false,
+        .skip_block_statements = false,
+        .skip_code_block_decorators = true //
+    };
+
+    const std::string_view expected_fst = R"(
+@@_{code}_
+```cpp
+foo
+```
+)"sv;
+
+    const std::string_view expected_snd = R"(
+foo
+)"sv;
+
+    do_test_two_pass(source, expected_fst, expected_snd, cfg_fst, {});
+}
+
+TEST_CASE("converter convert #52")
+{
+    const std::string_view source = R"(
+@@_{code}_
+```cpp
+int @@{"main"}() { }
+```
+)"sv;
+
+    const majsdown::converter::config cfg_fst{
+        .skip_escaped_symbols = false,
+        .skip_inline_expressions = false,
+        .skip_inline_statements = false,
+        .skip_block_statements = false,
+        .skip_code_block_decorators = true //
+    };
+
+    const std::string_view expected_fst = R"(
+@@_{code}_
+```cpp
+int main() { }
+```
+)"sv;
+
+    const std::string_view expected_snd = R"(
+int main() { }
+)"sv;
+
+    do_test_two_pass(source, expected_fst, expected_snd, cfg_fst, {});
+}
+
+TEST_CASE("converter convert #53")
+{
+    make_tmp_file("./x.cpp", "int main() { }");
+
+    const std::string_view source = R"(
+@@_{code}_
+```cpp
+@@{majsdown_embed("./x.cpp")}
+```
+)"sv;
+
+    const majsdown::converter::config cfg_fst{
+        .skip_escaped_symbols = false,
+        .skip_inline_expressions = false,
+        .skip_inline_statements = false,
+        .skip_block_statements = false,
+        .skip_code_block_decorators = true //
+    };
+
+    const std::string_view expected_fst = R"(
+@@_{code}_
+```cpp
+int main() { }
+```
+)"sv;
+
+    const std::string_view expected_snd = R"(
+int main() { }
+)"sv;
+
+    do_test_two_pass(source, expected_fst, expected_snd, cfg_fst, {});
+}
+
+TEST_CASE("converter convert #54")
+{
+    const std::string_view source = R"(
+@@$ function id(x) { return x; }
+
+@@_{id(code)}_
+```cpp
+int @@{"main"}() { }
+```
+)"sv;
+
+    const majsdown::converter::config cfg_fst{
+        .skip_escaped_symbols = false,
+        .skip_inline_expressions = false,
+        .skip_inline_statements = false,
+        .skip_block_statements = false,
+        .skip_code_block_decorators = true //
+    };
+
+    const std::string_view expected_fst = R"(
+
+@@_{id(code)}_
+```cpp
+int main() { }
+```
+)"sv;
+
+    const std::string_view expected_snd = R"(
+
+int main() { }
+)"sv;
+
+    do_test_two_pass(source, expected_fst, expected_snd, cfg_fst, {});
+}
+
+TEST_CASE("converter convert #55")
+{
+    const std::string_view source = R"(
+\@@$
+)"sv;
+
+    const majsdown::converter::config cfg_fst{
+        .skip_escaped_symbols = true,
+        .skip_inline_expressions = false,
+        .skip_inline_statements = true,
+        .skip_block_statements = false,
+        .skip_code_block_decorators = false //
+    };
+
+    const std::string_view expected_fst = R"(
+\@@$
+)"sv;
+
+    const std::string_view expected_snd = R"(
+@@$
+)"sv;
+
+    do_test_two_pass(source, expected_fst, expected_snd, cfg_fst, {});
+}
+
+TEST_CASE("converter convert #56")
+{
+    const std::string_view source = R"(
+@@$ function id(x) { return x; }
+
+``````markdown
+\@@_{id(code)}_
+```cpp
+int main() { }
+```
+``````
+)"sv;
+
+    const majsdown::converter::config cfg_fst{
+        .skip_escaped_symbols = true,
+        .skip_inline_expressions = false,
+        .skip_inline_statements = false,
+        .skip_block_statements = false,
+        .skip_code_block_decorators = true //
+    };
+
+    const std::string_view expected_fst = R"(
+
+``````markdown
+\@@_{id(code)}_
+```cpp
+int main() { }
+```
+``````
+)"sv;
+
+    const std::string_view expected_snd = R"(
+
+``````markdown
+@@_{id(code)}_
+```cpp
+int main() { }
+```
+``````
+)"sv;
+
+    do_test_two_pass(source, expected_fst, expected_snd, cfg_fst, {});
+}
+
+TEST_CASE("converter convert #57")
+{
+    const std::string_view source = R"(
+\@@$
+)"sv;
+
+    const majsdown::converter::config cfg_fst{
+        .skip_escaped_symbols = true,
+        .skip_inline_expressions = false,
+        .skip_inline_statements = true,
+        .skip_block_statements = false,
+        .skip_code_block_decorators = false //
+    };
+
+    const std::string_view expected_fst = R"(
+\@@$
+)"sv;
+
+    const std::string_view expected_snd = R"(
+@@$
+)"sv;
+
+    do_test_two_pass(source, expected_fst, expected_snd, cfg_fst, {});
+}
+
+TEST_CASE("converter convert #58")
+{
+    const std::string_view source = R"(
+\@@$
+
+```cpp
+"\n"
+```
+)"sv;
+
+    const majsdown::converter::config cfg_fst{
+        .skip_escaped_symbols = true,
+        .skip_inline_expressions = false,
+        .skip_inline_statements = true,
+        .skip_block_statements = false,
+        .skip_code_block_decorators = false //
+    };
+
+    const std::string_view expected_fst = R"(
+\@@$
+
+```cpp
+"\n"
+```
+)"sv;
+
+    const std::string_view expected_snd = R"(
+@@$
+
+```cpp
+"\n"
+```
+)"sv;
+
+    do_test_two_pass(source, expected_fst, expected_snd, cfg_fst, {});
+}
+
+TEST_CASE("converter convert #59")
+{
+    const std::string_view source = R"xxx(
+``````markdown {style="font-size: 155%"}
+\@@${
+function godboltLink(code)
+{
+    return "[on godbolt](" + String.raw`https://godbolt.org/clientstate/
+        ${Base64.encode(godboltJson(code))}` + ")";
+}
+}$
+
+\@@_{godboltify(code)}_
+```cpp
+int main()
+{
+    // ...
+}
+```
+``````
+)xxx"sv;
+
+    const majsdown::converter::config cfg_fst{
+        .skip_escaped_symbols = true,
+        .skip_inline_expressions = false,
+        .skip_inline_statements = false,
+        .skip_block_statements = false,
+        .skip_code_block_decorators = true //
+    };
+
+    const std::string_view expected_fst = R"xxx(
+``````markdown {style="font-size: 155%"}
+\@@${
+function godboltLink(code)
+{
+    return "[on godbolt](" + String.raw`https://godbolt.org/clientstate/
+        ${Base64.encode(godboltJson(code))}` + ")";
+}
+}$
+
+\@@_{godboltify(code)}_
+```cpp
+int main()
+{
+    // ...
+}
+```
+``````
+)xxx"sv;
+
+    const std::string_view expected_snd = R"xxx(
+``````markdown {style="font-size: 155%"}
+@@${
+function godboltLink(code)
+{
+    return "[on godbolt](" + String.raw`https://godbolt.org/clientstate/
+        ${Base64.encode(godboltJson(code))}` + ")";
+}
+}$
+
+@@_{godboltify(code)}_
+```cpp
+int main()
+{
+    // ...
+}
+```
+``````
+)xxx"sv;
+
+    do_test_two_pass(source, expected_fst, expected_snd, cfg_fst, {});
 }

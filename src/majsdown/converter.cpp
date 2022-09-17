@@ -1,8 +1,10 @@
 #include "converter.hpp"
 
 #include "js_interpreter.hpp"
+#include "majsdown/js_interpreter.hpp"
 
 #include <iostream>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -12,15 +14,43 @@
 
 namespace majsdown {
 
+class converter_state
+{
+public:
+    js_interpreter _js_interpreter;
+    std::string _tmp_buffer;
+    std::string _js_buffer;
+
+    void clear_buffers()
+    {
+        _tmp_buffer.clear();
+        _js_buffer.clear();
+    }
+};
+
 class converter_impl
 {
 private:
+    converter_state& _state;
+    const converter::config _cfg;
     const std::string_view _source;
-    std::string _tmp_buffer;
-    std::string _js_buffer;
-    js_interpreter _js_interpreter;
     std::size_t _curr_idx;
     std::size_t _curr_line;
+
+    [[nodiscard]] js_interpreter& get_js_interpreter() noexcept
+    {
+        return _state._js_interpreter;
+    }
+
+    [[nodiscard]] std::string& get_tmp_buffer() noexcept
+    {
+        return _state._tmp_buffer;
+    }
+
+    [[nodiscard]] std::string& get_js_buffer() noexcept
+    {
+        return _state._js_buffer;
+    }
 
     void copy_range_to_tmp_buffer(
         const std::size_t start_idx, const std::size_t end_idx)
@@ -28,7 +58,8 @@ private:
         assert(end_idx < _source.size());
         assert(start_idx <= end_idx);
 
-        _tmp_buffer.append(_source.data() + start_idx, end_idx - start_idx);
+        get_tmp_buffer().append(
+            _source.data() + start_idx, end_idx - start_idx);
     }
 
     [[nodiscard]] bool is_done()
@@ -165,11 +196,11 @@ private:
 
         assert(js_end_idx.has_value());
 
-        _tmp_buffer.clear();
+        get_tmp_buffer().clear();
         copy_range_to_tmp_buffer(js_start_idx, *js_end_idx);
 
-        _js_buffer.append(_tmp_buffer);
-        _js_buffer.append(1, '\n');
+        get_js_buffer().append(get_tmp_buffer());
+        get_js_buffer().append(1, '\n');
 
         increment_curr_line(1);
 
@@ -199,13 +230,13 @@ private:
             return false;
         }
 
-        _tmp_buffer.clear();
-        _tmp_buffer.append("__mjsd(");
+        get_tmp_buffer().clear();
+        get_tmp_buffer().append("__mjsd(");
         copy_range_to_tmp_buffer(js_start_idx, js_end_idx);
-        _tmp_buffer.append(");");
+        get_tmp_buffer().append(");");
 
-        if (!_js_interpreter.interpret(
-                output_buffer, _tmp_buffer /* null-terminated JS */))
+        if (!get_js_interpreter().interpret(
+                output_buffer, get_tmp_buffer() /* null-terminated JS */))
         {
             return false;
         }
@@ -235,11 +266,11 @@ private:
             return false;
         }
 
-        _tmp_buffer.clear();
+        get_tmp_buffer().clear();
         copy_range_to_tmp_buffer(js_start_idx, js_end_idx);
 
-        _js_buffer.append(_tmp_buffer);
-        _js_buffer.append(1, '\n');
+        get_js_buffer().append(get_tmp_buffer());
+        get_js_buffer().append(1, '\n');
 
         _curr_idx = js_end_idx + 1 /* newline */ + 2 /* }$ */;
         return true;
@@ -359,30 +390,30 @@ private:
         const std::string_view extracted_code =
             _source.substr(code_start_idx, *code_end_idx - code_start_idx);
 
-        _tmp_buffer.clear();
-        _tmp_buffer.append("(() => { const code = (String.raw`");
+        get_tmp_buffer().clear();
+        get_tmp_buffer().append("(() => { const code = (String.raw`");
 
         // First, we must escape backticks to embed in a JS template literal
         for (const char c : extracted_code)
         {
             if (c != '`')
             {
-                _tmp_buffer.append(1, c);
+                get_tmp_buffer().append(1, c);
                 continue;
             }
 
-            _tmp_buffer.append("\\`");
+            get_tmp_buffer().append("\\`");
         }
 
         // Then we unescape them after the `raw` call to avoid emitting slashes
-        _tmp_buffer.append("`).replace(/\\\\`/g, '`');; const lang = `");
-        _tmp_buffer.append(extracted_lang);
-        _tmp_buffer.append("`; return __mjsd(");
+        get_tmp_buffer().append("`).replace(/\\\\`/g, '`');; const lang = `");
+        get_tmp_buffer().append(extracted_lang);
+        get_tmp_buffer().append("`; return __mjsd(");
         copy_range_to_tmp_buffer(real_js_start_idx, js_end_idx);
-        _tmp_buffer.append("); })()");
+        get_tmp_buffer().append("); })()");
 
-        const std::string_view null_terminated_js = _tmp_buffer;
-        if (!_js_interpreter.interpret(output_buffer, null_terminated_js))
+        const std::string_view null_terminated_js = get_tmp_buffer();
+        if (!get_js_interpreter().interpret(output_buffer, null_terminated_js))
         {
             return false;
         }
@@ -396,7 +427,7 @@ private:
         if (c == '\n')
         {
             ++_curr_line;
-            _js_interpreter.set_current_diagnostics_line(_curr_line);
+            get_js_interpreter().set_current_diagnostics_line(_curr_line);
         }
 
         output_buffer.append(1, c);
@@ -411,7 +442,7 @@ private:
     void increment_curr_line(const std::size_t n)
     {
         _curr_line += n;
-        _js_interpreter.set_current_diagnostics_line(_curr_line);
+        get_js_interpreter().set_current_diagnostics_line(_curr_line);
     }
 
     [[nodiscard]] bool convert_step(std::string& output_buffer)
@@ -428,14 +459,14 @@ private:
             const bool next_is_stmt =
                 c == '@' && *next1 == '@' && *next2 == '$';
 
-            if (!next_is_stmt && !_js_buffer.empty())
+            if (!next_is_stmt && !get_js_buffer().empty())
             {
-                if (!_js_interpreter.interpret_discard(_js_buffer))
+                if (!get_js_interpreter().interpret_discard(get_js_buffer()))
                 {
                     return false;
                 }
 
-                _js_buffer.clear();
+                get_js_buffer().clear();
             }
         }
 
@@ -444,9 +475,16 @@ private:
         // ----------------------------------------------------------------
         if (c == '\\')
         {
-            if (const std::optional<char> next1 = peek(1);
-                next1 == '@')
+            if (const std::optional<char> next1 = peek(1); next1 == '@')
             {
+                if (_cfg.skip_escaped_symbols)
+                {
+                    process_normal_character(output_buffer, c);
+                    process_normal_character(output_buffer, '@');
+
+                    return true;
+                }
+
                 process_normal_character(output_buffer, '@');
                 step_fwd(1);
             }
@@ -501,14 +539,29 @@ private:
         {
             if (const std::optional<char> next3 = peek(3); *next3 == '{')
             {
+                if (_cfg.skip_block_statements)
+                {
+                    process_normal_character(output_buffer, c);
+                    return true;
+                }
+
                 if (!process_block_statement(js_start_idx + 1))
                 {
                     return false;
                 }
             }
-            else if (!process_inline_statement(js_start_idx))
+            else
             {
-                return false;
+                if (_cfg.skip_inline_statements)
+                {
+                    process_normal_character(output_buffer, c);
+                    return true;
+                }
+
+                if (!process_inline_statement(js_start_idx))
+                {
+                    return false;
+                }
             }
 
             return true;
@@ -519,6 +572,12 @@ private:
         // ----------------------------------------------------------------
         if (*next2 == '{')
         {
+            if (_cfg.skip_inline_expressions)
+            {
+                process_normal_character(output_buffer, c);
+                return true;
+            }
+
             if (!process_inline_expression(output_buffer, js_start_idx))
             {
                 return false;
@@ -532,6 +591,12 @@ private:
         // ----------------------------------------------------------------
         if (*next2 == '_')
         {
+            if (_cfg.skip_code_block_decorators)
+            {
+                process_normal_character(output_buffer, c);
+                return true;
+            }
+
             const std::optional<char> next3 = peek(3);
             if (!next3.has_value() || *next3 != '{')
             {
@@ -554,14 +619,14 @@ private:
     }
 
 public:
-    [[nodiscard]] explicit converter_impl(const std::string_view source)
-        : _source{source}, _curr_idx{0}, _curr_line{0}
+    [[nodiscard]] explicit converter_impl(converter_state& state,
+        const converter::config& cfg, const std::string_view source)
+        : _state{state}, _cfg{cfg}, _source{source}, _curr_idx{0}, _curr_line{0}
     {
-        _js_interpreter.set_current_diagnostics_line(_curr_line);
+        get_js_interpreter().set_current_diagnostics_line(_curr_line);
     }
 
-    ~converter_impl() noexcept
-    {}
+    ~converter_impl() = default;
 
     [[nodiscard]] bool convert(std::string& output_buffer) noexcept
     {
@@ -577,13 +642,16 @@ public:
     }
 };
 
-converter::converter() = default;
+converter::converter() : _state{std::make_unique<converter_state>()}
+{}
+
 converter::~converter() = default;
 
-bool converter::convert(
-    std::string& output_buffer, const std::string_view source) noexcept
+bool converter::convert(const config& cfg, std::string& output_buffer,
+    const std::string_view source) noexcept
 {
-    return converter_impl{source}.convert(output_buffer);
+    _state->clear_buffers();
+    return converter_impl{*_state, cfg, source}.convert(output_buffer);
 }
 
 } // namespace majsdown
