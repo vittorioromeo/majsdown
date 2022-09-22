@@ -1,3 +1,4 @@
+#include <sstream>
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
 
@@ -47,20 +48,38 @@ std::string& do_test_impl(majsdown::converter& cnvtr, const std::size_t buf_idx,
     return output_buffer;
 }
 
+void do_test_one_pass_error(const std::string_view source,
+    const majsdown::converter::config& cfg = {},
+    std::ostream& err_stream = std::cerr)
+{
+    majsdown::converter cnvtr{err_stream};
+
+    std::string& output_buffer = get_thread_local_buf(0);
+    output_buffer.clear();
+
+    const bool ok = cnvtr.convert(cfg, output_buffer, source);
+
+    // TODO:
+    // REQUIRE(ok);
+    // REQUIRE(output_buffer == "");
+}
+
 void do_test_one_pass(const std::string_view source,
     const std::string_view expected,
-    const majsdown::converter::config& cfg = {})
+    const majsdown::converter::config& cfg = {},
+    std::ostream& err_stream = std::cerr)
 {
-    majsdown::converter cnvtr;
+    majsdown::converter cnvtr{err_stream};
     do_test_impl(cnvtr, 0, source, expected, cfg);
 }
 
 void do_test_two_pass(const std::string_view source,
     const std::string_view expected_fst, const std::string_view expected_snd,
     const majsdown::converter::config& cfg_fst,
-    const majsdown::converter::config& cfg_snd = {})
+    const majsdown::converter::config& cfg_snd = {},
+    std::ostream& err_stream = std::cerr)
 {
-    majsdown::converter cnvtr;
+    majsdown::converter cnvtr{err_stream};
 
     const std::string& out_fst =
         do_test_impl(cnvtr, 0, source, expected_fst, cfg_fst);
@@ -83,7 +102,7 @@ void make_tmp_file(const std::string_view path, const std::string_view contents)
 
 TEST_CASE("converter ctor/dtor")
 {
-    majsdown::converter c;
+    majsdown::converter c{std::cerr};
     (void)c;
 }
 
@@ -1288,4 +1307,343 @@ int main()
 )xxx"sv;
 
     do_test_two_pass(source, expected_fst, expected_snd, cfg_fst, {});
+}
+
+// TODO: repeated with interpreter test
+
+[[nodiscard]] static bool diagnostic_contains(
+    const std::string_view sv, const std::string_view needle)
+{
+    if (sv.find(needle) == std::string_view::npos)
+    {
+        std::cerr << "OUTPUT:\n" << sv << '\n';
+        return false;
+    }
+
+    return true;
+}
+
+[[nodiscard]] static bool has_js_line_diagnostic(
+    const std::string_view sv, const std::size_t i)
+{
+    thread_local std::ostringstream oss;
+    oss << "NUM: '" << i << "'";
+
+    return diagnostic_contains(sv, oss.str());
+}
+
+[[nodiscard]] static bool has_computed_line_diagnostic(
+    const std::string_view sv, const std::size_t i)
+{
+    thread_local std::ostringstream oss;
+    oss << "COMPUTED LINE: '" << i << "'";
+
+    return diagnostic_contains(sv, oss.str());
+}
+
+[[nodiscard]] static bool has_js_line_diagnostic(
+    const std::ostringstream& oss, const std::size_t i)
+{
+    return has_js_line_diagnostic(oss.str(), i);
+}
+
+[[nodiscard]] static bool has_computed_line_diagnostic(
+    const std::ostringstream& oss, const std::size_t i)
+{
+    return has_computed_line_diagnostic(oss.str(), i);
+}
+
+[[nodiscard]] static bool diagnostic_contains(
+    const std::ostringstream& oss, const std::string_view needle)
+{
+    return diagnostic_contains(oss.str(), needle);
+}
+
+TEST_CASE("converter convert #60")
+{
+    const std::string_view source = R"(
+@@$ var i = 10;
+@@{i + 5}
+)"sv;
+
+    const std::string_view expected = R"(
+15
+)"sv;
+
+    std::ostringstream oss;
+    do_test_one_pass(source, expected, {}, oss);
+
+    REQUIRE(oss.str() == "");
+}
+
+TEST_CASE("converter convert #61")
+{
+    const std::string_view source = R"(
+@@$ var i = j;
+
+)"sv;
+
+    std::ostringstream oss;
+    do_test_one_pass_error(source, {}, oss);
+
+    REQUIRE(has_js_line_diagnostic(oss, 1));
+    REQUIRE(has_computed_line_diagnostic(oss, 1));
+}
+
+TEST_CASE("converter convert #62")
+{
+    const std::string_view source = R"(
+a
+@@$ var i = j;
+
+)"sv;
+
+    std::ostringstream oss;
+    do_test_one_pass_error(source, {}, oss);
+
+    REQUIRE(has_js_line_diagnostic(oss, 1));
+    REQUIRE(has_computed_line_diagnostic(oss, 2));
+}
+
+TEST_CASE("converter convert #63")
+{
+    const std::string_view source = R"(
+a
+##
+@@$ var i = j;
+
+)"sv;
+
+    std::ostringstream oss;
+    do_test_one_pass_error(source, {}, oss);
+
+    REQUIRE(has_js_line_diagnostic(oss, 1));
+    REQUIRE(has_computed_line_diagnostic(oss, 3));
+}
+
+TEST_CASE("converter convert #64")
+{
+    const std::string_view source = R"(
+a
+##
+@@{10}
+@@$ var i = j;
+
+)"sv;
+
+    std::ostringstream oss;
+    do_test_one_pass_error(source, {}, oss);
+
+    REQUIRE(has_js_line_diagnostic(oss, 1));
+    REQUIRE(has_computed_line_diagnostic(oss, 4));
+}
+
+TEST_CASE("converter convert #65")
+{
+    const std::string_view source = R"(
+@@{j};
+
+)"sv;
+
+    std::ostringstream oss;
+    do_test_one_pass_error(source, {}, oss);
+
+    REQUIRE(has_js_line_diagnostic(oss, 1));
+    REQUIRE(has_computed_line_diagnostic(oss, 1));
+}
+
+TEST_CASE("converter convert #66")
+{
+    const std::string_view source = R"(
+a
+@@{j};
+
+)"sv;
+
+    std::ostringstream oss;
+    do_test_one_pass_error(source, {}, oss);
+
+    REQUIRE(has_js_line_diagnostic(oss, 1));
+    REQUIRE(has_computed_line_diagnostic(oss, 2));
+}
+
+TEST_CASE("converter convert #67")
+{
+    const std::string_view source = R"(
+a
+##
+@@{j};
+
+)"sv;
+
+    std::ostringstream oss;
+    do_test_one_pass_error(source, {}, oss);
+
+    REQUIRE(has_js_line_diagnostic(oss, 1));
+    REQUIRE(has_computed_line_diagnostic(oss, 3));
+}
+
+TEST_CASE("converter convert #68")
+{
+    const std::string_view source = R"(
+a
+##
+@@{10}
+@@{j};
+
+)"sv;
+
+    std::ostringstream oss;
+    do_test_one_pass_error(source, {}, oss);
+
+    REQUIRE(has_js_line_diagnostic(oss, 1));
+    REQUIRE(has_computed_line_diagnostic(oss, 4));
+}
+
+TEST_CASE("converter convert #69")
+{
+    const std::string_view source = R"(
+a
+##
+@@$ var i = j;
+@@$
+@@$
+
+)"sv;
+
+    std::ostringstream oss;
+    do_test_one_pass_error(source, {}, oss);
+
+    REQUIRE(has_js_line_diagnostic(oss, 1));
+    REQUIRE(has_computed_line_diagnostic(oss, 3));
+}
+
+TEST_CASE("converter convert #70")
+{
+    const std::string_view source = R"(
+a
+##
+@@$
+@@$ var i = j;
+@@$
+
+)"sv;
+
+    std::ostringstream oss;
+    do_test_one_pass_error(source, {}, oss);
+
+    REQUIRE(has_js_line_diagnostic(oss, 2));
+    REQUIRE(has_computed_line_diagnostic(oss, 4));
+}
+
+TEST_CASE("converter convert #71")
+{
+    const std::string_view source = R"(
+a
+##
+@@$
+@@$
+@@$ var i = j;
+
+)"sv;
+
+    std::ostringstream oss;
+    do_test_one_pass_error(source, {}, oss);
+
+    REQUIRE(has_js_line_diagnostic(oss, 3));
+    REQUIRE(has_computed_line_diagnostic(oss, 5));
+}
+
+TEST_CASE("converter convert #72")
+{
+    const std::string_view source = R"(
+a
+##
+@@$ var i = j;
+
+@@$
+
+)"sv;
+
+    std::ostringstream oss;
+    do_test_one_pass_error(source, {}, oss);
+
+    REQUIRE(has_js_line_diagnostic(oss, 1));
+    REQUIRE(has_computed_line_diagnostic(oss, 3));
+}
+
+TEST_CASE("converter convert #73")
+{
+    const std::string_view source = R"(
+a
+##
+@@$
+
+@@$ var i = j;
+
+)"sv;
+
+    std::ostringstream oss;
+    do_test_one_pass_error(source, {}, oss);
+
+    REQUIRE(has_js_line_diagnostic(oss, 1));
+    REQUIRE(has_computed_line_diagnostic(oss, 5));
+}
+
+TEST_CASE("converter convert #74")
+{
+    const std::string_view source = R"(
+a
+##
+@@$
+@@$
+b
+
+@@$
+@@$ var i = j;
+@@$
+c
+
+)"sv;
+
+    std::ostringstream oss;
+    do_test_one_pass_error(source, {}, oss);
+
+    REQUIRE(has_js_line_diagnostic(oss, 2));
+    REQUIRE(has_computed_line_diagnostic(oss, 8));
+}
+
+TEST_CASE("converter convert #75")
+{
+    const std::string_view source = R"(
+a
+##
+@@${var i = j;}$
+
+)"sv;
+
+    std::ostringstream oss;
+    do_test_one_pass_error(source, {}, oss);
+
+    REQUIRE(has_js_line_diagnostic(oss, 1));
+    REQUIRE(has_computed_line_diagnostic(oss, 3));
+}
+
+TEST_CASE("converter convert #76")
+{
+    const std::string_view source = R"(
+a
+##
+@@${
+10;
+var i = j;
+}$
+
+)"sv;
+
+    std::ostringstream oss;
+    do_test_one_pass_error(source, {}, oss);
+
+    REQUIRE(has_js_line_diagnostic(oss, 3));
+    REQUIRE(has_computed_line_diagnostic(oss, 5));
 }

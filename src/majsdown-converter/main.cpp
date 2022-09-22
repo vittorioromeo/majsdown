@@ -23,7 +23,7 @@ int main()
     line_and_output_buffer.clear();
     line_and_output_buffer.reserve(input_and_final_buffer.size() + 1024);
 
-    majsdown::converter converter;
+    majsdown::converter converter{std::cerr};
 
     constexpr majsdown::converter::config fst_pass_cfg{
         .skip_escaped_symbols = true,

@@ -14,12 +14,18 @@
 
 namespace majsdown {
 
-class converter_state
+class converter::state
 {
 public:
-    js_interpreter _js_interpreter{std::cerr};
+    std::ostream& _err_stream;
+    js_interpreter _js_interpreter;
     std::string _tmp_buffer;
     std::string _js_buffer;
+    std::size_t _js_buffer_start_line = 0;
+
+    explicit state(std::ostream& err_stream)
+        : _err_stream{err_stream}, _js_interpreter{err_stream}
+    {}
 
     void clear_buffers()
     {
@@ -28,10 +34,12 @@ public:
     }
 };
 
-class converter_pass
+// ----------------------------------------------------------------------------
+
+class converter::pass
 {
 private:
-    converter_state& _state;
+    state& _state;
     const converter::config _cfg;
     const std::string_view _source;
     std::size_t _curr_idx;
@@ -173,8 +181,8 @@ private:
 
     [[nodiscard]] std::ostream& error_diagnostic_stream()
     {
-        return std::cerr << "((MJSD ERROR))(" << get_adjusted_curr_line()
-                         << "): ";
+        return _state._err_stream << "((MJSD ERROR))("
+                                  << get_adjusted_curr_line() << "): ";
     }
 
     void error_diagnostic_directive(
@@ -199,6 +207,11 @@ private:
         {
             error_diagnostic_directive('$', "missing newline");
             return false;
+        }
+
+        if (get_js_buffer().empty())
+        {
+            _state._js_buffer_start_line = _curr_line;
         }
 
         assert(js_end_idx.has_value());
@@ -227,6 +240,8 @@ private:
             return false;
         }
 
+        const std::size_t start_line = _curr_line;
+
         assert(js_end_idx_result.has_value());
         const auto& [js_end_idx, n_newlines] = *js_end_idx_result;
         increment_curr_line(n_newlines);
@@ -242,9 +257,18 @@ private:
         copy_range_to_tmp_buffer(js_start_idx, js_end_idx);
         get_tmp_buffer().append(");");
 
-        if (!get_js_interpreter().interpret(
-                output_buffer, get_tmp_buffer() /* null-terminated JS */))
+        const std::optional<js_interpreter::error> res =
+            get_js_interpreter().interpret(
+                output_buffer, get_tmp_buffer() /* null-terminated JS */);
+
+        if (res.has_value())
         {
+            const std::size_t computed_line = start_line + res->_line - 1;
+
+            _state._err_stream << "COMPUTED LINE: '" << computed_line
+                               << "'\n\n";
+
+            // TODO: error case
             return false;
         }
 
@@ -261,6 +285,11 @@ private:
         {
             error_diagnostic_directive("${", "missing closing brace");
             return false;
+        }
+
+        if (get_js_buffer().empty())
+        {
+            _state._js_buffer_start_line = _curr_line;
         }
 
         assert(js_end_idx_result.has_value());
@@ -420,8 +449,11 @@ private:
         get_tmp_buffer().append("); })()");
 
         const std::string_view null_terminated_js = get_tmp_buffer();
-        if (!get_js_interpreter().interpret(output_buffer, null_terminated_js))
+        if (get_js_interpreter()
+                .interpret(output_buffer, null_terminated_js)
+                .has_value())
         {
+            // TODO: error case
             return false;
         }
 
@@ -464,8 +496,18 @@ private:
 
             if (!next_is_stmt && !get_js_buffer().empty())
             {
-                if (!get_js_interpreter().interpret_discard(get_js_buffer()))
+                const std::optional<js_interpreter::error> res =
+                    get_js_interpreter().interpret_discard(get_js_buffer());
+
+                if (res.has_value())
                 {
+                    const std::size_t computed_line =
+                        _state._js_buffer_start_line + res->_line - 1;
+
+                    _state._err_stream << "COMPUTED LINE: '" << computed_line
+                                       << "'\n\n";
+
+                    // TODO: error case
                     return false;
                 }
 
@@ -592,21 +634,21 @@ private:
             return true;
         }
 
-        std::cerr << "((MJSD ERROR))(" << get_adjusted_curr_line()
-                  << "): Fatal conversion error\n\n";
+        _state._err_stream << "((MJSD ERROR))(" << get_adjusted_curr_line()
+                           << "): Fatal conversion error\n\n";
 
         return false;
     }
 
 public:
-    [[nodiscard]] explicit converter_pass(converter_state& state,
-        const converter::config& cfg, const std::string_view source)
+    [[nodiscard]] explicit pass(state& state, const converter::config& cfg,
+        const std::string_view source)
         : _state{state}, _cfg{cfg}, _source{source}, _curr_idx{0}, _curr_line{0}
     {
         get_js_interpreter().set_current_diagnostics_line(_curr_line);
     }
 
-    ~converter_pass() = default;
+    ~pass() = default;
 
     [[nodiscard]] bool convert(std::string& output_buffer) noexcept
     {
@@ -622,7 +664,10 @@ public:
     }
 };
 
-converter::converter() : _state{std::make_unique<converter_state>()}
+// ----------------------------------------------------------------------------
+
+converter::converter(std::ostream& err_stream)
+    : _state{std::make_unique<state>(err_stream)}
 {}
 
 converter::~converter() = default;
@@ -631,7 +676,7 @@ bool converter::convert(const config& cfg, std::string& output_buffer,
     const std::string_view source) noexcept
 {
     _state->clear_buffers();
-    return converter_pass{*_state, cfg, source}.convert(output_buffer);
+    return pass{*_state, cfg, source}.convert(output_buffer);
 }
 
 } // namespace majsdown
