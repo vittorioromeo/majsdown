@@ -1,5 +1,6 @@
 #include "js_interpreter.hpp"
 
+#include <optional>
 #include <quickjs-libc.h>
 #include <quickjs.h>
 
@@ -12,6 +13,7 @@
 #include <utility>
 
 #include <cassert>
+#include <cstdint>
 
 namespace majsdown {
 
@@ -25,6 +27,18 @@ namespace majsdown {
 {
     thread_local std::size_t diagnostics_line{0};
     return diagnostics_line;
+}
+
+[[nodiscard]] static std::size_t& get_tl_diagnostics_line_adjustment() noexcept
+{
+    thread_local std::size_t diagnostics_line_adjustment{0};
+    return diagnostics_line_adjustment;
+}
+
+[[nodiscard]] static std::ostream*& get_tl_err_stream() noexcept
+{
+    thread_local std::ostream* err_stream{nullptr};
+    return err_stream;
 }
 
 // ----------------------------------------------------------------------------
@@ -66,23 +80,35 @@ static void output_to_tl_buffer_pointee(JSContext* context, JSValueConst* argv)
 [[nodiscard]] static std::ostream& error_diagnostic_stream(
     const char* type, const std::size_t line)
 {
-    return std::cerr << "((" << type << " ERROR))(" << line << "): ";
+    return (*get_tl_err_stream())
+           << "((" << type << " ERROR))(" << (line + 1) << "): ";
+}
+
+static void set_line_adjustment(JSContext* context, JSValueConst* argv)
+{
+    std::int32_t out;
+    if (JS_ToInt32(context, &out, argv[0]) != 0)
+    {
+        error_diagnostic_stream("INTERNAL ERROR", 0)
+            << "Error in 'set_line_adjustment'\n\n";
+
+        return;
+    }
+
+    get_tl_diagnostics_line_adjustment() = out;
 }
 
 [[nodiscard]] static bool read_file_in_buffer(
     const std::string_view path, std::string& buffer)
 {
-    const auto get_diagnostic_line = [&]() -> std::string
-    {
-        const std::size_t diagnostics_line = get_tl_diagnostics_line();
-        return diagnostics_line == 0 ? "?" : std::to_string(diagnostics_line);
-    };
+    const std::size_t diagnostic_line =
+        get_tl_diagnostics_line() + get_tl_diagnostics_line_adjustment();
 
     std::ifstream ifs(path.data(), std::ios::binary | std::ios::ate);
     if (!ifs)
     {
-        std::cerr << "((IO ERROR))(" << get_diagnostic_line()
-                  << "): Failed to open file '" << buffer << "'\n\n";
+        ::majsdown::error_diagnostic_stream("IO", diagnostic_line)
+            << "Failed to open file '" << buffer << "'\n\n";
 
         return false;
     }
@@ -95,8 +121,8 @@ static void output_to_tl_buffer_pointee(JSContext* context, JSValueConst* argv)
 
     if (!ifs.read(buffer.data(), size))
     {
-        std::cerr << "((IO ERROR))(" << get_diagnostic_line()
-                  << "): Failed to read file '" << buffer << "'\n\n";
+        ::majsdown::error_diagnostic_stream("IO", diagnostic_line)
+            << "Failed to read file '" << buffer << "'\n\n";
 
         return false;
     }
@@ -146,14 +172,15 @@ static void include_file(JSContext* context, JSValueConst* argv)
 struct js_interpreter::impl
 {
 private:
+    tl_guard<&get_tl_err_stream> _err_stream_tl_guard;
     JSRuntime* _runtime;
     JSContext* _context;
     std::size_t _curr_diagnostics_line;
 
     [[nodiscard]] std::ostream& error_diagnostic_stream(const char* type)
     {
-        return ::majsdown::error_diagnostic_stream(
-            type, _curr_diagnostics_line);
+        return ::majsdown::error_diagnostic_stream(type,
+            _curr_diagnostics_line + get_tl_diagnostics_line_adjustment());
     }
 
     template <auto FPtr>
@@ -188,8 +215,53 @@ private:
     {
         if (JS_IsException(js_value) || JS_IsError(_context, js_value))
         {
+            const JSValue js_exception = JS_GetException(_context);
+
+            const JSValue js_stack_trace =
+                JS_GetPropertyStr(_context, js_exception, "stack");
+
+            const std::string_view js_stack_trace_sv =
+                JS_ToCString(_context, js_stack_trace);
+
+            const auto js_stack_trace_line_num =
+                [&]() -> std::optional<std::size_t>
+            {
+                using namespace std::string_view_literals;
+
+                const auto needle = "(<evalScript>:"sv;
+                const auto n_begin = js_stack_trace_sv.find(needle);
+
+                if (n_begin == std::string_view::npos)
+                {
+                    return std::nullopt;
+                }
+
+                const auto n_end = js_stack_trace_sv.find(")", n_begin);
+
+                if (n_end == std::string_view::npos)
+                {
+                    return std::nullopt;
+                }
+
+                const auto extr_begin = n_begin + needle.size();
+                const auto extr_len = n_end - extr_begin;
+
+                const std::string_view extr =
+                    js_stack_trace_sv.substr(extr_begin, extr_len);
+
+                return std::stoi(std::string(extr));
+            }();
+
+            // TODO: deal with number extraction for nicer diagnostics
             error_diagnostic_stream("JS")
-                << JS_ToCString(_context, JS_GetException(_context)) << "\n\n";
+                << JS_ToCString(_context, js_exception) << "\n\n"
+                << js_stack_trace_sv << "\n\n"
+                << "NUM: '" << js_stack_trace_line_num.value_or(999) << "'\n";
+
+            JS_FreeValue(
+                _context, js_stack_trace); // TODO: RAII, and fix other places,
+                                           // grep for JSValue and JS_Eval
+            JS_FreeValue(_context, js_exception);
 
             return false;
         }
@@ -198,12 +270,14 @@ private:
     }
 
 public:
-    [[nodiscard]] explicit impl() noexcept
-        : _runtime{JS_NewRuntime()},
+    [[nodiscard]] explicit impl(std::ostream& err_stream) noexcept
+        : _err_stream_tl_guard{&err_stream},
+          _runtime{JS_NewRuntime()},
           _context{JS_NewContext(_runtime)},
           _curr_diagnostics_line{0}
     {
         bind_function<&output_to_tl_buffer_pointee>("__mjsd", 1);
+        bind_function<&set_line_adjustment>("__mjsd_line", 1);
         bind_function<&include_file>("majsdown_include", 1);
         bind_function<&embed_file>("majsdown_embed", 1);
     }
@@ -220,23 +294,36 @@ public:
         std::string& output_buffer, const std::string_view source) noexcept
     {
         tl_guard<&get_tl_buffer_ptr> buffer_ptr_guard{&output_buffer};
-        return check_js_errors(eval_impl(_context, source));
+
+        const JSValue result = eval_impl(_context, source);
+        const bool rc = check_js_errors(result);
+        JS_FreeValue(_context, result);
+        return rc;
     }
 
     [[nodiscard]] bool interpret_discard(const std::string_view source) noexcept
     {
-        return check_js_errors(eval_impl(_context, source));
+        const JSValue result = eval_impl(_context, source);
+        const bool rc = check_js_errors(result);
+        JS_FreeValue(_context, result);
+        return rc;
     }
 
     void set_current_diagnostics_line(const std::size_t line) noexcept
     {
         get_tl_diagnostics_line() = _curr_diagnostics_line = line;
     }
+
+    [[nodiscard]] std::size_t get_current_diagnostics_line_adjustment() noexcept
+    {
+        return get_tl_diagnostics_line_adjustment();
+    }
 };
 
 // ----------------------------------------------------------------------------
 
-js_interpreter::js_interpreter() : _impl{std::make_unique<impl>()}
+js_interpreter::js_interpreter(std::ostream& err_stream)
+    : _impl{std::make_unique<impl>(err_stream)}
 {}
 
 js_interpreter::~js_interpreter() = default;
@@ -256,6 +343,12 @@ void js_interpreter::set_current_diagnostics_line(
     const std::size_t line) noexcept
 {
     _impl->set_current_diagnostics_line(line);
+}
+
+[[nodiscard]] std::size_t
+js_interpreter::get_current_diagnostics_line_adjustment() noexcept
+{
+    return _impl->get_current_diagnostics_line_adjustment();
 }
 
 } // namespace majsdown

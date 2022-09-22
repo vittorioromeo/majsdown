@@ -17,7 +17,7 @@ namespace majsdown {
 class converter_state
 {
 public:
-    js_interpreter _js_interpreter;
+    js_interpreter _js_interpreter{std::cerr};
     std::string _tmp_buffer;
     std::string _js_buffer;
 
@@ -50,6 +50,12 @@ private:
     [[nodiscard]] std::string& get_js_buffer() noexcept
     {
         return _state._js_buffer;
+    }
+
+    [[nodiscard]] std::size_t get_adjusted_curr_line() noexcept
+    {
+        return _curr_line +
+               _state._js_interpreter.get_current_diagnostics_line_adjustment();
     }
 
     void copy_range_to_tmp_buffer(
@@ -167,7 +173,8 @@ private:
 
     [[nodiscard]] std::ostream& error_diagnostic_stream()
     {
-        return std::cerr << "((MJSD ERROR))(" << _curr_line << "): ";
+        return std::cerr << "((MJSD ERROR))(" << get_adjusted_curr_line()
+                         << "): ";
     }
 
     void error_diagnostic_directive(
@@ -426,8 +433,7 @@ private:
     {
         if (c == '\n')
         {
-            ++_curr_line;
-            get_js_interpreter().set_current_diagnostics_line(_curr_line);
+            increment_curr_line(1);
         }
 
         output_buffer.append(1, c);
@@ -586,7 +592,7 @@ private:
             return true;
         }
 
-        std::cerr << "((MJSD ERROR))(" << _curr_line
+        std::cerr << "((MJSD ERROR))(" << get_adjusted_curr_line()
                   << "): Fatal conversion error\n\n";
 
         return false;
