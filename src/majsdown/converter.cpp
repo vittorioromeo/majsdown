@@ -60,10 +60,14 @@ private:
         return _state._js_buffer;
     }
 
+    [[nodiscard]] std::size_t get_current_diagnostics_line_adjustment() noexcept
+    {
+        return _state._js_interpreter.get_current_diagnostics_line_adjustment();
+    }
+
     [[nodiscard]] std::size_t get_adjusted_curr_line() noexcept
     {
-        return _curr_line +
-               _state._js_interpreter.get_current_diagnostics_line_adjustment();
+        return _curr_line + get_current_diagnostics_line_adjustment();
     }
 
     void copy_range_to_tmp_buffer(
@@ -265,8 +269,11 @@ private:
         {
             const std::size_t computed_line = start_line + res->_line - 1;
 
-            _state._err_stream << "COMPUTED LINE: '" << computed_line
-                               << "'\n\n";
+            _state._err_stream
+                << "COMPUTED LINE: '" << computed_line << "'\n"
+                << "FINAL: '"
+                << computed_line + 1 + get_current_diagnostics_line_adjustment()
+                << "'\n\n";
 
             // TODO: error case
             return false;
@@ -483,6 +490,36 @@ private:
         get_js_interpreter().set_current_diagnostics_line(_curr_line);
     }
 
+    void decrement_curr_line(const std::size_t n)
+    {
+        _curr_line -= n;
+        get_js_interpreter().set_current_diagnostics_line(_curr_line);
+    }
+
+    [[nodiscard]] bool consume_js_statement_buffer()
+    {
+        const std::optional<js_interpreter::error> res =
+            get_js_interpreter().interpret_discard(get_js_buffer());
+
+        if (res.has_value())
+        {
+            const std::size_t computed_line =
+                _state._js_buffer_start_line + res->_line - 1;
+
+            _state._err_stream
+                << "COMPUTED LINE: '" << computed_line << "'\n"
+                << "FINAL: '"
+                << computed_line + 1 + get_current_diagnostics_line_adjustment()
+                << "'\n\n";
+
+            // TODO: error case
+            return false;
+        }
+
+        get_js_buffer().clear();
+        return true;
+    }
+
     [[nodiscard]] bool convert_step(std::string& output_buffer)
     {
         const char c = get_curr_char();
@@ -496,22 +533,10 @@ private:
 
             if (!next_is_stmt && !get_js_buffer().empty())
             {
-                const std::optional<js_interpreter::error> res =
-                    get_js_interpreter().interpret_discard(get_js_buffer());
-
-                if (res.has_value())
+                if (!consume_js_statement_buffer())
                 {
-                    const std::size_t computed_line =
-                        _state._js_buffer_start_line + res->_line - 1;
-
-                    _state._err_stream << "COMPUTED LINE: '" << computed_line
-                                       << "'\n\n";
-
-                    // TODO: error case
                     return false;
                 }
-
-                get_js_buffer().clear();
             }
         }
 
@@ -655,6 +680,14 @@ public:
         while (!is_done())
         {
             if (!convert_step(output_buffer))
+            {
+                return false;
+            }
+        }
+
+        if (!get_js_buffer().empty())
+        {
+            if (!consume_js_statement_buffer())
             {
                 return false;
             }

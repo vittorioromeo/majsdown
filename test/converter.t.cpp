@@ -1341,6 +1341,15 @@ int main()
     return diagnostic_contains(sv, oss.str());
 }
 
+[[nodiscard]] static bool has_final_line_diagnostic(
+    const std::string_view sv, const std::size_t i)
+{
+    thread_local std::ostringstream oss;
+    oss << "FINAL: '" << i << "'";
+
+    return diagnostic_contains(sv, oss.str());
+}
+
 [[nodiscard]] static bool has_js_line_diagnostic(
     const std::ostringstream& oss, const std::size_t i)
 {
@@ -1351,6 +1360,12 @@ int main()
     const std::ostringstream& oss, const std::size_t i)
 {
     return has_computed_line_diagnostic(oss.str(), i);
+}
+
+[[nodiscard]] static bool has_final_line_diagnostic(
+    const std::ostringstream& oss, const std::size_t i)
+{
+    return has_final_line_diagnostic(oss.str(), i);
 }
 
 [[nodiscard]] static bool diagnostic_contains(
@@ -1388,6 +1403,7 @@ TEST_CASE("converter convert #61")
 
     REQUIRE(has_js_line_diagnostic(oss, 1));
     REQUIRE(has_computed_line_diagnostic(oss, 1));
+    REQUIRE(has_final_line_diagnostic(oss, 2));
 }
 
 TEST_CASE("converter convert #62")
@@ -1403,6 +1419,7 @@ a
 
     REQUIRE(has_js_line_diagnostic(oss, 1));
     REQUIRE(has_computed_line_diagnostic(oss, 2));
+    REQUIRE(has_final_line_diagnostic(oss, 3));
 }
 
 TEST_CASE("converter convert #63")
@@ -1419,6 +1436,7 @@ a
 
     REQUIRE(has_js_line_diagnostic(oss, 1));
     REQUIRE(has_computed_line_diagnostic(oss, 3));
+    REQUIRE(has_final_line_diagnostic(oss, 4));
 }
 
 TEST_CASE("converter convert #64")
@@ -1436,6 +1454,7 @@ a
 
     REQUIRE(has_js_line_diagnostic(oss, 1));
     REQUIRE(has_computed_line_diagnostic(oss, 4));
+    REQUIRE(has_final_line_diagnostic(oss, 5));
 }
 
 TEST_CASE("converter convert #65")
@@ -1450,6 +1469,7 @@ TEST_CASE("converter convert #65")
 
     REQUIRE(has_js_line_diagnostic(oss, 1));
     REQUIRE(has_computed_line_diagnostic(oss, 1));
+    REQUIRE(has_final_line_diagnostic(oss, 2));
 }
 
 TEST_CASE("converter convert #66")
@@ -1465,6 +1485,7 @@ a
 
     REQUIRE(has_js_line_diagnostic(oss, 1));
     REQUIRE(has_computed_line_diagnostic(oss, 2));
+    REQUIRE(has_final_line_diagnostic(oss, 3));
 }
 
 TEST_CASE("converter convert #67")
@@ -1481,6 +1502,7 @@ a
 
     REQUIRE(has_js_line_diagnostic(oss, 1));
     REQUIRE(has_computed_line_diagnostic(oss, 3));
+    REQUIRE(has_final_line_diagnostic(oss, 4));
 }
 
 TEST_CASE("converter convert #68")
@@ -1611,6 +1633,7 @@ c
 
     REQUIRE(has_js_line_diagnostic(oss, 2));
     REQUIRE(has_computed_line_diagnostic(oss, 8));
+    REQUIRE(has_final_line_diagnostic(oss, 9));
 }
 
 TEST_CASE("converter convert #75")
@@ -1646,4 +1669,159 @@ var i = j;
 
     REQUIRE(has_js_line_diagnostic(oss, 3));
     REQUIRE(has_computed_line_diagnostic(oss, 5));
+}
+
+TEST_CASE("converter convert #77")
+{
+    const std::string_view source = R"(
+@@$ x
+)"sv;
+
+    std::ostringstream oss;
+    do_test_one_pass_error(source, {}, oss);
+
+    REQUIRE(has_js_line_diagnostic(oss, 1));
+    REQUIRE(has_computed_line_diagnostic(oss, 1));
+    REQUIRE(has_final_line_diagnostic(oss, 2));
+}
+
+TEST_CASE("converter convert #78")
+{
+    const std::string_view source = R"(
+@@{x}
+)"sv;
+
+    std::ostringstream oss;
+    do_test_one_pass_error(source, {}, oss);
+
+    REQUIRE(has_js_line_diagnostic(oss, 1));
+    REQUIRE(has_computed_line_diagnostic(oss, 1));
+    REQUIRE(has_final_line_diagnostic(oss, 2));
+}
+
+TEST_CASE("converter convert #79")
+{
+    const std::string_view source = R"(
+@@$ var y = 0;
+
+@@$ x
+)"sv;
+
+    std::ostringstream oss;
+    do_test_one_pass_error(source, {}, oss);
+
+    REQUIRE(has_js_line_diagnostic(oss, 1));
+    REQUIRE(has_computed_line_diagnostic(oss, 3));
+    REQUIRE(has_final_line_diagnostic(oss, 4));
+}
+
+TEST_CASE("converter convert #80")
+{
+    const std::string_view source = R"(
+aaa @@{x}
+)"sv;
+
+    std::ostringstream oss;
+    do_test_one_pass_error(source, {}, oss);
+
+    REQUIRE(has_js_line_diagnostic(oss, 1));
+    REQUIRE(has_computed_line_diagnostic(oss, 1));
+    REQUIRE(has_final_line_diagnostic(oss, 2));
+}
+
+TEST_CASE("converter convert #81")
+{
+    const std::string_view source = R"(
+aaa @@{x} aaa
+)"sv;
+
+    std::ostringstream oss;
+    do_test_one_pass_error(source, {}, oss);
+
+    REQUIRE(has_js_line_diagnostic(oss, 1));
+    REQUIRE(has_computed_line_diagnostic(oss, 1));
+    REQUIRE(has_final_line_diagnostic(oss, 2));
+}
+
+TEST_CASE("converter convert #82")
+{
+    const std::string_view source = R"(
+aaa @@{x} aaaa
+aaa
+
+@@{10}
+)"sv;
+
+    std::ostringstream oss;
+    do_test_one_pass_error(source, {}, oss);
+
+    REQUIRE(has_js_line_diagnostic(oss, 1));
+    REQUIRE(has_computed_line_diagnostic(oss, 1));
+    REQUIRE(has_final_line_diagnostic(oss, 2));
+}
+
+TEST_CASE("converter convert #83")
+{
+    const std::string_view source = R"(
+aaa @@{5} aaaa @@{x}
+aaa
+
+@@{10}
+)"sv;
+
+    std::ostringstream oss;
+    do_test_one_pass_error(source, {}, oss);
+
+    REQUIRE(has_js_line_diagnostic(oss, 1));
+    REQUIRE(has_computed_line_diagnostic(oss, 1));
+    REQUIRE(has_final_line_diagnostic(oss, 2));
+}
+
+TEST_CASE("converter convert #84")
+{
+    const std::string_view source = R"(
+aaa @@{x} aaaa @@{5}
+aaa
+
+@@{10}
+)"sv;
+
+    std::ostringstream oss;
+    do_test_one_pass_error(source, {}, oss);
+
+    REQUIRE(has_js_line_diagnostic(oss, 1));
+    REQUIRE(has_computed_line_diagnostic(oss, 1));
+    REQUIRE(has_final_line_diagnostic(oss, 2));
+}
+
+TEST_CASE("converter convert #85")
+{
+    const std::string_view source = R"(
+@@$
+@@$ x
+@@$
+)"sv;
+
+    std::ostringstream oss;
+    do_test_one_pass_error(source, {}, oss);
+
+    REQUIRE(has_js_line_diagnostic(oss, 2));
+    REQUIRE(has_computed_line_diagnostic(oss, 2));
+    REQUIRE(has_final_line_diagnostic(oss, 3));
+}
+
+TEST_CASE("converter convert #86")
+{
+    const std::string_view source = R"(
+@@$ __mjsd_line(-2);
+@@$ x
+@@$
+)"sv;
+
+    std::ostringstream oss;
+    do_test_one_pass_error(source, {}, oss);
+
+    REQUIRE(has_js_line_diagnostic(oss, 2));
+    REQUIRE(has_computed_line_diagnostic(oss, 2));
+    REQUIRE(has_final_line_diagnostic(oss, 1));
 }
