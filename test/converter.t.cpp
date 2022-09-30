@@ -1825,3 +1825,36 @@ TEST_CASE("converter convert #86")
     REQUIRE(has_computed_line_diagnostic(oss, 2));
     REQUIRE(has_final_line_diagnostic(oss, 1));
 }
+
+
+TEST_CASE("converter convert #87")
+{
+    const std::string_view source = R"(
+@@${
+x
+}$
+)"sv;
+
+    std::ostringstream oss;
+    do_test_one_pass_error(source, {}, oss);
+
+    REQUIRE(has_js_line_diagnostic(oss, 2));
+    REQUIRE(has_computed_line_diagnostic(oss, 2));
+    REQUIRE(has_final_line_diagnostic(oss, 3));
+}
+
+TEST_CASE("converter convert #88")
+{
+    const std::string_view source = R"(
+@@${ __mjsd_line(-2);
+x
+}$
+)"sv;
+
+    std::ostringstream oss;
+    do_test_one_pass_error(source, {}, oss);
+
+    REQUIRE(has_js_line_diagnostic(oss, 2));
+    REQUIRE(has_computed_line_diagnostic(oss, 2));
+    REQUIRE(has_final_line_diagnostic(oss, 1));
+}
