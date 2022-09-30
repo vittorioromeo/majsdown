@@ -133,11 +133,9 @@ static void output_to_tl_buffer_pointee(JSContext* context, JSValueConst* argv)
     buffer_ptr->append(string_arg);
 }
 
-[[nodiscard]] static std::ostream& error_diagnostic_stream(
-    const char* type, const std::size_t line)
+[[nodiscard]] static std::ostream& error_diagnostic_stream(const char* type)
 {
-    return (*get_tl_err_stream())
-           << "((" << type << " ERROR))(" << (line + 1) << "): ";
+    return (*get_tl_err_stream()) << "((" << type << " ERROR)): ";
 }
 
 static void set_line_adjustment(JSContext* context, JSValueConst* argv)
@@ -145,7 +143,7 @@ static void set_line_adjustment(JSContext* context, JSValueConst* argv)
     std::int32_t out;
     if (JS_ToInt32(context, &out, argv[0]) != 0)
     {
-        error_diagnostic_stream("INTERNAL ERROR", 0)
+        error_diagnostic_stream("INTERNAL")
             << "Error in 'set_line_adjustment'\n\n";
 
         return;
@@ -163,8 +161,9 @@ static void set_line_adjustment(JSContext* context, JSValueConst* argv)
     std::ifstream ifs(path.data(), std::ios::binary | std::ios::ate);
     if (!ifs)
     {
-        ::majsdown::error_diagnostic_stream("IO", diagnostic_line)
-            << "Failed to open file '" << buffer << "'\n\n";
+        ::majsdown::error_diagnostic_stream("IO")
+            << "(" << diagnostic_line << ") Failed to open file '" << buffer
+            << "'\n\n";
 
         return false;
     }
@@ -177,8 +176,9 @@ static void set_line_adjustment(JSContext* context, JSValueConst* argv)
 
     if (!ifs.read(buffer.data(), size))
     {
-        ::majsdown::error_diagnostic_stream("IO", diagnostic_line)
-            << "Failed to read file '" << buffer << "'\n\n";
+        ::majsdown::error_diagnostic_stream("IO")
+            << "(" << diagnostic_line << ") Failed to read file '" << buffer
+            << "'\n\n";
 
         return false;
     }
@@ -232,12 +232,6 @@ private:
     js_runtime_uptr _runtime;
     js_context_uptr _context;
     std::size_t _curr_diagnostics_line;
-
-    [[nodiscard]] std::ostream& error_diagnostic_stream(const char* type)
-    {
-        return ::majsdown::error_diagnostic_stream(type,
-            _curr_diagnostics_line + get_tl_diagnostics_line_adjustment());
-    }
 
     template <auto FPtr>
     void bind_function(const std::string_view name, const int n_args) noexcept
@@ -317,7 +311,7 @@ private:
             error_diagnostic_stream("JS")
                 << JS_ToCString(ctx, js_exception._value) << "\n\n"
                 << js_stack_trace_sv << "\n\n"
-                << "NUM: '" << js_stack_trace_line_num.value_or(1) << "'\n";
+                << "Interpreter line: '" << js_stack_trace_line_num.value_or(1) << "'\n";
 
             return error{._line = js_stack_trace_line_num.value_or(1)};
         }

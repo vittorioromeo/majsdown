@@ -6,6 +6,7 @@
 #include <iostream>
 #include <memory>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <string_view>
 
@@ -19,12 +20,13 @@ class converter::state
 public:
     std::ostream& _err_stream;
     js_interpreter _js_interpreter;
+    std::ostringstream _js_interpreter_err_stream;
     std::string _tmp_buffer;
     std::string _js_buffer;
     std::size_t _js_buffer_start_line = 0;
 
     explicit state(std::ostream& err_stream)
-        : _err_stream{err_stream}, _js_interpreter{err_stream}
+        : _err_stream{err_stream}, _js_interpreter{_js_interpreter_err_stream}
     {}
 
     void clear_buffers()
@@ -183,17 +185,17 @@ private:
         return std::nullopt;
     }
 
-    [[nodiscard]] std::ostream& error_diagnostic_stream()
+    [[nodiscard]] std::ostream& error_diagnostic_stream(std::size_t line)
     {
-        return _state._err_stream << "((MJSD ERROR))("
-                                  << get_adjusted_curr_line() << "): ";
+        return _state._err_stream << "((MJSD ERROR))(" << line << "): ";
     }
 
     void error_diagnostic_directive(
         const std::string_view& disambiguator, const std::string_view& reason)
     {
-        error_diagnostic_stream() << "Error in '@@" << disambiguator
-                                  << "' directive (" << reason << ")\n\n";
+        error_diagnostic_stream(get_adjusted_curr_line())
+            << "Error in '@@" << disambiguator << "' directive (" << reason
+            << ")\n\n";
     }
 
     void error_diagnostic_directive(
@@ -268,12 +270,12 @@ private:
         if (res.has_value())
         {
             const std::size_t computed_line = start_line + res->_line - 1;
+            const std::size_t final_line =
+                computed_line + 1 + get_current_diagnostics_line_adjustment();
 
-            _state._err_stream
-                << "COMPUTED LINE: '" << computed_line << "'\n"
-                << "FINAL: '"
-                << computed_line + 1 + get_current_diagnostics_line_adjustment()
-                << "'\n\n";
+            error_diagnostic_stream(final_line)
+                << '\n'
+                << _state._js_interpreter_err_stream.str() << '\n';
 
             // TODO: error case
             return false;
@@ -460,7 +462,10 @@ private:
                 .interpret(output_buffer, null_terminated_js)
                 .has_value())
         {
-            // TODO: error case
+            error_diagnostic_stream(get_adjusted_curr_line())
+                << '\n'
+                << _state._js_interpreter_err_stream.str() << '\n';
+
             return false;
         }
 
@@ -505,12 +510,12 @@ private:
         {
             const std::size_t computed_line =
                 _state._js_buffer_start_line + res->_line - 1;
+            const std::size_t final_line =
+                computed_line + 1 + get_current_diagnostics_line_adjustment();
 
-            _state._err_stream
-                << "COMPUTED LINE: '" << computed_line << "'\n"
-                << "FINAL: '"
-                << computed_line + 1 + get_current_diagnostics_line_adjustment()
-                << "'\n\n";
+            error_diagnostic_stream(final_line)
+                << '\n'
+                << _state._js_interpreter_err_stream.str() << '\n';
 
             // TODO: error case
             return false;
@@ -659,8 +664,8 @@ private:
             return true;
         }
 
-        _state._err_stream << "((MJSD ERROR))(" << get_adjusted_curr_line()
-                           << "): Fatal conversion error\n\n";
+        error_diagnostic_stream(get_adjusted_curr_line())
+            << "Fatal conversion error\n\n";
 
         return false;
     }

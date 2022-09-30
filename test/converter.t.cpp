@@ -1327,16 +1327,7 @@ int main()
     const std::string_view sv, const std::size_t i)
 {
     thread_local std::ostringstream oss;
-    oss << "NUM: '" << i << "'";
-
-    return diagnostic_contains(sv, oss.str());
-}
-
-[[nodiscard]] static bool has_computed_line_diagnostic(
-    const std::string_view sv, const std::size_t i)
-{
-    thread_local std::ostringstream oss;
-    oss << "COMPUTED LINE: '" << i << "'";
+    oss << "Interpreter line: '" << i << "'";
 
     return diagnostic_contains(sv, oss.str());
 }
@@ -1345,7 +1336,7 @@ int main()
     const std::string_view sv, const std::size_t i)
 {
     thread_local std::ostringstream oss;
-    oss << "FINAL: '" << i << "'";
+    oss << "((MJSD ERROR))(" << i << "):";
 
     return diagnostic_contains(sv, oss.str());
 }
@@ -1356,22 +1347,10 @@ int main()
     return has_js_line_diagnostic(oss.str(), i);
 }
 
-[[nodiscard]] static bool has_computed_line_diagnostic(
-    const std::ostringstream& oss, const std::size_t i)
-{
-    return has_computed_line_diagnostic(oss.str(), i);
-}
-
 [[nodiscard]] static bool has_final_line_diagnostic(
     const std::ostringstream& oss, const std::size_t i)
 {
     return has_final_line_diagnostic(oss.str(), i);
-}
-
-[[nodiscard]] static bool diagnostic_contains(
-    const std::ostringstream& oss, const std::string_view needle)
-{
-    return diagnostic_contains(oss.str(), needle);
 }
 
 TEST_CASE("converter convert #60")
@@ -1402,7 +1381,6 @@ TEST_CASE("converter convert #61")
     do_test_one_pass_error(source, {}, oss);
 
     REQUIRE(has_js_line_diagnostic(oss, 1));
-    REQUIRE(has_computed_line_diagnostic(oss, 1));
     REQUIRE(has_final_line_diagnostic(oss, 2));
 }
 
@@ -1418,7 +1396,6 @@ a
     do_test_one_pass_error(source, {}, oss);
 
     REQUIRE(has_js_line_diagnostic(oss, 1));
-    REQUIRE(has_computed_line_diagnostic(oss, 2));
     REQUIRE(has_final_line_diagnostic(oss, 3));
 }
 
@@ -1435,7 +1412,6 @@ a
     do_test_one_pass_error(source, {}, oss);
 
     REQUIRE(has_js_line_diagnostic(oss, 1));
-    REQUIRE(has_computed_line_diagnostic(oss, 3));
     REQUIRE(has_final_line_diagnostic(oss, 4));
 }
 
@@ -1453,7 +1429,6 @@ a
     do_test_one_pass_error(source, {}, oss);
 
     REQUIRE(has_js_line_diagnostic(oss, 1));
-    REQUIRE(has_computed_line_diagnostic(oss, 4));
     REQUIRE(has_final_line_diagnostic(oss, 5));
 }
 
@@ -1468,7 +1443,6 @@ TEST_CASE("converter convert #65")
     do_test_one_pass_error(source, {}, oss);
 
     REQUIRE(has_js_line_diagnostic(oss, 1));
-    REQUIRE(has_computed_line_diagnostic(oss, 1));
     REQUIRE(has_final_line_diagnostic(oss, 2));
 }
 
@@ -1484,7 +1458,6 @@ a
     do_test_one_pass_error(source, {}, oss);
 
     REQUIRE(has_js_line_diagnostic(oss, 1));
-    REQUIRE(has_computed_line_diagnostic(oss, 2));
     REQUIRE(has_final_line_diagnostic(oss, 3));
 }
 
@@ -1501,7 +1474,6 @@ a
     do_test_one_pass_error(source, {}, oss);
 
     REQUIRE(has_js_line_diagnostic(oss, 1));
-    REQUIRE(has_computed_line_diagnostic(oss, 3));
     REQUIRE(has_final_line_diagnostic(oss, 4));
 }
 
@@ -1519,7 +1491,6 @@ a
     do_test_one_pass_error(source, {}, oss);
 
     REQUIRE(has_js_line_diagnostic(oss, 1));
-    REQUIRE(has_computed_line_diagnostic(oss, 4));
 }
 
 TEST_CASE("converter convert #69")
@@ -1537,7 +1508,6 @@ a
     do_test_one_pass_error(source, {}, oss);
 
     REQUIRE(has_js_line_diagnostic(oss, 1));
-    REQUIRE(has_computed_line_diagnostic(oss, 3));
 }
 
 TEST_CASE("converter convert #70")
@@ -1555,7 +1525,6 @@ a
     do_test_one_pass_error(source, {}, oss);
 
     REQUIRE(has_js_line_diagnostic(oss, 2));
-    REQUIRE(has_computed_line_diagnostic(oss, 4));
 }
 
 TEST_CASE("converter convert #71")
@@ -1573,7 +1542,6 @@ a
     do_test_one_pass_error(source, {}, oss);
 
     REQUIRE(has_js_line_diagnostic(oss, 3));
-    REQUIRE(has_computed_line_diagnostic(oss, 5));
 }
 
 TEST_CASE("converter convert #72")
@@ -1591,7 +1559,6 @@ a
     do_test_one_pass_error(source, {}, oss);
 
     REQUIRE(has_js_line_diagnostic(oss, 1));
-    REQUIRE(has_computed_line_diagnostic(oss, 3));
 }
 
 TEST_CASE("converter convert #73")
@@ -1609,7 +1576,6 @@ a
     do_test_one_pass_error(source, {}, oss);
 
     REQUIRE(has_js_line_diagnostic(oss, 1));
-    REQUIRE(has_computed_line_diagnostic(oss, 5));
 }
 
 TEST_CASE("converter convert #74")
@@ -1632,7 +1598,6 @@ c
     do_test_one_pass_error(source, {}, oss);
 
     REQUIRE(has_js_line_diagnostic(oss, 2));
-    REQUIRE(has_computed_line_diagnostic(oss, 8));
     REQUIRE(has_final_line_diagnostic(oss, 9));
 }
 
@@ -1649,7 +1614,6 @@ a
     do_test_one_pass_error(source, {}, oss);
 
     REQUIRE(has_js_line_diagnostic(oss, 1));
-    REQUIRE(has_computed_line_diagnostic(oss, 3));
 }
 
 TEST_CASE("converter convert #76")
@@ -1668,7 +1632,6 @@ var i = j;
     do_test_one_pass_error(source, {}, oss);
 
     REQUIRE(has_js_line_diagnostic(oss, 3));
-    REQUIRE(has_computed_line_diagnostic(oss, 5));
 }
 
 TEST_CASE("converter convert #77")
@@ -1681,7 +1644,6 @@ TEST_CASE("converter convert #77")
     do_test_one_pass_error(source, {}, oss);
 
     REQUIRE(has_js_line_diagnostic(oss, 1));
-    REQUIRE(has_computed_line_diagnostic(oss, 1));
     REQUIRE(has_final_line_diagnostic(oss, 2));
 }
 
@@ -1695,7 +1657,6 @@ TEST_CASE("converter convert #78")
     do_test_one_pass_error(source, {}, oss);
 
     REQUIRE(has_js_line_diagnostic(oss, 1));
-    REQUIRE(has_computed_line_diagnostic(oss, 1));
     REQUIRE(has_final_line_diagnostic(oss, 2));
 }
 
@@ -1711,7 +1672,6 @@ TEST_CASE("converter convert #79")
     do_test_one_pass_error(source, {}, oss);
 
     REQUIRE(has_js_line_diagnostic(oss, 1));
-    REQUIRE(has_computed_line_diagnostic(oss, 3));
     REQUIRE(has_final_line_diagnostic(oss, 4));
 }
 
@@ -1725,7 +1685,6 @@ aaa @@{x}
     do_test_one_pass_error(source, {}, oss);
 
     REQUIRE(has_js_line_diagnostic(oss, 1));
-    REQUIRE(has_computed_line_diagnostic(oss, 1));
     REQUIRE(has_final_line_diagnostic(oss, 2));
 }
 
@@ -1739,7 +1698,6 @@ aaa @@{x} aaa
     do_test_one_pass_error(source, {}, oss);
 
     REQUIRE(has_js_line_diagnostic(oss, 1));
-    REQUIRE(has_computed_line_diagnostic(oss, 1));
     REQUIRE(has_final_line_diagnostic(oss, 2));
 }
 
@@ -1756,7 +1714,6 @@ aaa
     do_test_one_pass_error(source, {}, oss);
 
     REQUIRE(has_js_line_diagnostic(oss, 1));
-    REQUIRE(has_computed_line_diagnostic(oss, 1));
     REQUIRE(has_final_line_diagnostic(oss, 2));
 }
 
@@ -1773,7 +1730,6 @@ aaa
     do_test_one_pass_error(source, {}, oss);
 
     REQUIRE(has_js_line_diagnostic(oss, 1));
-    REQUIRE(has_computed_line_diagnostic(oss, 1));
     REQUIRE(has_final_line_diagnostic(oss, 2));
 }
 
@@ -1790,7 +1746,6 @@ aaa
     do_test_one_pass_error(source, {}, oss);
 
     REQUIRE(has_js_line_diagnostic(oss, 1));
-    REQUIRE(has_computed_line_diagnostic(oss, 1));
     REQUIRE(has_final_line_diagnostic(oss, 2));
 }
 
@@ -1806,7 +1761,6 @@ TEST_CASE("converter convert #85")
     do_test_one_pass_error(source, {}, oss);
 
     REQUIRE(has_js_line_diagnostic(oss, 2));
-    REQUIRE(has_computed_line_diagnostic(oss, 2));
     REQUIRE(has_final_line_diagnostic(oss, 3));
 }
 
@@ -1822,7 +1776,6 @@ TEST_CASE("converter convert #86")
     do_test_one_pass_error(source, {}, oss);
 
     REQUIRE(has_js_line_diagnostic(oss, 2));
-    REQUIRE(has_computed_line_diagnostic(oss, 2));
     REQUIRE(has_final_line_diagnostic(oss, 1));
 }
 
@@ -1839,7 +1792,6 @@ x
     do_test_one_pass_error(source, {}, oss);
 
     REQUIRE(has_js_line_diagnostic(oss, 2));
-    REQUIRE(has_computed_line_diagnostic(oss, 2));
     REQUIRE(has_final_line_diagnostic(oss, 3));
 }
 
@@ -1855,6 +1807,5 @@ x
     do_test_one_pass_error(source, {}, oss);
 
     REQUIRE(has_js_line_diagnostic(oss, 2));
-    REQUIRE(has_computed_line_diagnostic(oss, 2));
     REQUIRE(has_final_line_diagnostic(oss, 1));
 }

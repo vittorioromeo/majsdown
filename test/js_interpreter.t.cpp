@@ -80,7 +80,7 @@ var i = 10;
     const std::string_view sv, const std::size_t i)
 {
     thread_local std::ostringstream oss;
-    oss << "NUM: '" << i << "'";
+    oss << "Interpreter line: '" << i << "'";
 
     return diagnostic_contains(sv, oss.str());
 }
