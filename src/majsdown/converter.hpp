@@ -1,17 +1,19 @@
 #pragma once
 
+#include <iosfwd>
 #include <memory>
 #include <string>
 #include <string_view>
 
 namespace majsdown {
 
-class converter_state;
-
 class converter
 {
 private:
-    std::unique_ptr<converter_state> _state;
+    class state;
+    class pass;
+
+    std::unique_ptr<state> _state;
 
 public:
     struct config
@@ -23,7 +25,7 @@ public:
         bool skip_code_block_decorators = false;
     };
 
-    [[nodiscard]] explicit converter();
+    [[nodiscard]] explicit converter(std::ostream& err_stream);
     ~converter();
 
     [[nodiscard]] bool convert(const config& cfg, std::string& output_buffer,

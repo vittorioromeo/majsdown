@@ -1,6 +1,7 @@
 #pragma once
 
 #include <fstream>
+#include <iosfwd>
 #include <iostream>
 #include <memory>
 #include <optional>
@@ -11,3 +12,4 @@
 
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
